@@ -9,7 +9,7 @@ shows a banner whenever it is active. Turn it on with PTP_MOCK=1.
 
 Environment:
   PTP_LLM_URL    default http://127.0.0.1:11434/v1
-  PTP_LLM_MODEL  default llama3.2:3b   (a placeholder: test models on your own laptop)
+  PTP_LLM_MODEL  default gemma3:4b     (chosen by testing; see README, "Choosing the model")
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ class OllamaLLM:
 
     def __init__(self, base_url: str | None = None, model: str | None = None, timeout: float = 180.0):
         self.base_url = (base_url or os.environ.get("PTP_LLM_URL") or "http://127.0.0.1:11434/v1").rstrip("/")
-        self.model = model or os.environ.get("PTP_LLM_MODEL") or "llama3.2:3b"
+        self.model = model or os.environ.get("PTP_LLM_MODEL") or "gemma3:4b"
         self.timeout = timeout
 
     def available(self) -> bool:

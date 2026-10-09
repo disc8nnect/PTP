@@ -4,7 +4,8 @@
 FROM python:3.13.15-slim-bookworm
 
 ARG STT=true
-RUN if [ "$STT" = "true" ]; then pip install --no-cache-dir faster-whisper==1.2.1; fi
+COPY requirements.txt /tmp/requirements.txt
+RUN if [ "$STT" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.txt; fi
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -19,7 +20,7 @@ COPY ptp ./ptp
 COPY web ./web
 COPY data ./data
 COPY tests ./tests
-COPY demo_check.py compare_models.py ./
+COPY demo_check.py compare_models.py requirements.txt ./
 
 # Profile, tasks, recordings (/data/state) and the downloaded speech model (/data/models) live in
 # /data, so they survive rebuilds when it is a volume. Runs as a normal user, not root.

@@ -180,14 +180,14 @@ class App:
             raise ApiError(422, str(exc), "bad_model_output")
 
     def confirm_tasks(self, body: dict) -> dict:
-        tasks = body.get("tasks")
-        if not isinstance(tasks, list) or not tasks:
-            raise ApiError(400, "No tasks to save.", "no_tasks")
+        tasks = body.get("tasks") or []
+        questions = [q.strip() for q in body.get("questions") or [] if isinstance(q, str) and q.strip()]
+        if not isinstance(tasks, list) or not (tasks or questions):
+            raise ApiError(400, "Nothing to save.", "no_tasks")
         added = self.store.add_tasks(tasks, str(body.get("visit_date") or today().isoformat()),
-                                     str(body.get("summary") or ""))
-        for q in body.get("questions") or []:
-            if isinstance(q, str):
-                self.store.add_question(q)
+                                     str(body.get("summary") or "")) if tasks else []
+        for q in questions:
+            self.store.add_question(q)
         return {"tasks": added}
 
     def toggle_task(self, body: dict) -> dict:
@@ -201,12 +201,18 @@ class App:
         if not q:
             raise ApiError(400, "Type a question first.", "no_question")
         try:
-            result = rag.answer(q[:500], self.chunks, self.llm, self.flags)
+            return rag.answer(q[:500], self.chunks, self.llm, self.flags)
         except LLMUnavailable as exc:
             raise llm_error(exc)
-        if result.get("add_to_questions"):
-            self.store.add_question(q[:300])
-        return result
+
+    def save_question(self, body: dict) -> dict:
+        """Save a question for the next check-up. Only when the user taps the button: an
+        automatic save once put "How do I fix my car engine?" on the midwife summary."""
+        q = str(body.get("question", "")).strip()[:300]
+        if not q:
+            raise ApiError(400, "Type a question first.", "no_question")
+        self.store.add_question(q)
+        return {"questions": self.store.snapshot()["questions"]}
 
     def facilities(self, lat: float | None, lon: float | None, kind: str | None) -> dict:
         default = self.facility_data["default_location"]
@@ -291,6 +297,8 @@ def route(app: App, method: str, path: str, query: dict, body: bytes, headers) -
             return app.toggle_task(js())
         if path == "/api/ask":
             return app.ask(js())
+        if path == "/api/questions":
+            return app.save_question(js())
     raise ApiError(404, "No such endpoint.", "not_found")
 
 

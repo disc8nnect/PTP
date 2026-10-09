@@ -18,7 +18,7 @@ services:
       - "${PTP_BIND:-127.0.0.1}:8765:8765"
     environment:
       PTP_LLM_URL: ${PTP_LLM_URL:-http://ollama:11434/v1}
-      PTP_LLM_MODEL: ${PTP_LLM_MODEL:-llama3.2:3b}
+      PTP_LLM_MODEL: ${PTP_LLM_MODEL:-gemma3:4b}
       PTP_MOCK: ${PTP_MOCK:-0}
       PTP_WHISPER_MODEL: ${PTP_WHISPER_MODEL:-small}
       PTP_STT_LANGUAGE: ${PTP_STT_LANGUAGE:-}
@@ -50,7 +50,7 @@ services:
     image: ollama/ollama:0.34.4
     environment:
       OLLAMA_HOST: ollama:11434
-      PTP_LLM_MODEL: ${PTP_LLM_MODEL:-llama3.2:3b}
+      PTP_LLM_MODEL: ${PTP_LLM_MODEL:-gemma3:4b}
     entrypoint: ["sh", "-c", "ollama pull \"$$PTP_LLM_MODEL\" || echo \"Could not download $$PTP_LLM_MODEL now (offline?). Keeping the models already downloaded.\""]
     depends_on:
       ollama:

@@ -73,6 +73,11 @@ class ServerTest(unittest.TestCase):
                                                   "summary": ex["summary"], "questions": ex["unanswered"]})
         self.assertEqual(s, 200)
         tid = saved["tasks"][0]["id"]
+        # Saving only a question (no to-dos ticked) works; saving nothing is refused.
+        s, only_q = self.j("POST", "/api/tasks", {"tasks": [], "questions": ["Puwede ba akong mag-kape?"]})
+        self.assertEqual((s, only_q["tasks"]), (200, []))
+        self.assertIn("Puwede ba akong mag-kape?", self.j("GET", "/api/summary")[1]["questions"])
+        self.assertEqual(self.j("POST", "/api/tasks", {"tasks": [], "questions": []})[1]["code"], "no_tasks")
         self.assertTrue(self.j("POST", "/api/tasks/toggle", {"id": tid})[1]["task"]["done"])
         self.assertEqual(self.j("POST", "/api/tasks/toggle", {"id": "nope"})[0], 404)
 
@@ -88,6 +93,13 @@ class ServerTest(unittest.TestCase):
 
     def test_c_ask(self):
         self.assertEqual(self.j("POST", "/api/ask", {"question": "   "})[0], 400)
+        # Unanswered questions are only offered for the check-up list; the user's tap saves them.
+        r = self.j("POST", "/api/ask", {"question": "How do I fix my bicycle?"})[1]
+        self.assertTrue(r["add_to_questions"])
+        self.assertNotIn("How do I fix my bicycle?", self.j("GET", "/api/summary")[1]["questions"])
+        self.assertEqual(self.j("POST", "/api/questions", {"question": "Puwede ba akong mag-swimming?"})[0], 200)
+        self.assertIn("Puwede ba akong mag-swimming?", self.j("GET", "/api/summary")[1]["questions"])
+        self.assertEqual(self.j("POST", "/api/questions", {"question": " "})[0], 400)
         self.assertEqual(self.j("POST", "/api/ask", {"question": "Anong gamot sa sakit ng ulo?"})[1]["kind"], "medication")
         self.assertEqual(self.j("POST", "/api/ask", {"question": "I have heavy bleeding"})[1]["kind"], "emergency")
         self.assertEqual(self.j("POST", "/api/ask", {"question": "How do I fix my car engine?"})[1]["kind"], "not_found")

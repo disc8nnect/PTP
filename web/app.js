@@ -147,7 +147,7 @@ async function render() {
     el.innerHTML = `<div class="note-red">${esc(err.message)}</div>`;
   }
 }
-window.addEventListener('hashchange', () => { render(); $('#view').scrollTop = 0; });
+window.addEventListener('hashchange', () => { $('#toast').classList.remove('show'); render(); $('#view').scrollTop = 0; });
 
 // ------------------------------------------------------------------ home
 function setupForm() {
@@ -290,6 +290,7 @@ function reviewHTML(n) {
         <div class="row between"><strong style="font-size:15px">${esc(task.title)}</strong>${dateChip(task)}</div>
         <div class="quote">“${esc(task.quote)}”</div>
         ${task.verify ? `<span class="chip warn" style="align-self:flex-start">${esc(t('review.verify'))}</span>` : ''}
+        ${task.by_code ? `<span class="chip" style="align-self:flex-start">${esc(t('review.byCode'))}</span>` : ''}
       </div>
     </label>`).join('');
   const qs = r.unanswered.map((q, i) => `
@@ -382,14 +383,16 @@ async function saveTasks() {
 // ------------------------------------------------------------------ ask
 async function viewAsk(el) {
   const h = state.health || {};
-  const log = state.chat.map((m) => {
+  const log = state.chat.map((m, i) => {
     if (m.role === 'me') return `<div class="bubble me">${esc(m.text)}</div>`;
     const cls = m.kind === 'emergency' ? 'red' : (m.kind === 'answer' ? '' : 'amber');
     const cites = (m.citations || []).map((c) => `<span class="src">[${c.n}] ${esc(c.title)}${c.sample ? ' · ' + esc(t('ask.sampleCitation')) : ''}</span>`).join('');
     // The answer itself is in the language of the question; the notes around it follow the app language.
     return `<div class="bubble bot ${cls}"><div>${esc(m.kind === 'wait' ? t('ask.searching') : m.text)}</div>${cites}
       ${m.kind === 'emergency' ? `<a class="btn red small" href="#/emergency">${esc(t('ask.openEmergency'))}</a>` : ''}
-      ${m.added ? `<div class="small muted">${esc(t('ask.added'))}</div>` : ''}
+      ${m.fromGuide ? `<div class="small muted">${esc(t('ask.fromGuide'))}</div>` : ''}
+      ${m.offerSave && !m.saved ? `<button class="btn small" data-action="save-question" data-i="${i}">${esc(t('ask.saveQuestion'))}</button>` : ''}
+      ${m.saved ? `<div class="small muted">${esc(t('ask.added'))}</div>` : ''}
       ${m.kind === 'answer' ? `<div class="small muted">${esc(t('common.notAdvice'))}</div>` : ''}</div>`;
   }).join('');
   el.innerHTML = `
@@ -408,7 +411,8 @@ async function ask(q) {
   await viewAsk($('#view'));
   try {
     const r = await post('/api/ask', { question: q });
-    state.chat[state.chat.length - 1] = { role: 'bot', kind: r.kind, text: r.answer, citations: r.citations, added: r.add_to_questions };
+    state.chat[state.chat.length - 1] = { role: 'bot', kind: r.kind, text: r.answer, citations: r.citations, fromGuide: r.from_guide,
+      offerSave: r.add_to_questions, question: q, saved: false };
   } catch (err) {
     state.chat[state.chat.length - 1] = { role: 'bot', kind: 'error', text: err.message };
   }
@@ -522,6 +526,10 @@ document.addEventListener('click', async (ev) => {
     else if (a === 'notes-back') { n.stage = 'input'; renderNotes(); }
     else if (a === 'notes-reset') { Object.assign(n, { stage: 'input', transcript: '', result: null, picked: new Set(), pickedQ: new Set() }); renderNotes(); }
     else if (a === 'kind') { state.nearby.kind = el.dataset.kind; await render(); }
+    else if (a === 'save-question') {
+      const m = state.chat[Number(el.dataset.i)];
+      await post('/api/questions', { question: m.question }); m.saved = true; await viewAsk($('#view'));
+    }
     else if (a === 'locate') locate();
   } catch (err) { toast(err.message); }
 });

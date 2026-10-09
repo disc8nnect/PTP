@@ -21,7 +21,7 @@
     "error.llm_unavailable": "Can't connect to the local AI model. See the README (Ollama).",
     "error.llm_model_missing": "The AI model {model} is not downloaded yet. See the README (ollama pull).",
     "error.bad_model_output": "The AI's reply couldn't be read. Please try again.",
-    "error.no_tasks": "Pick at least one to-do to save.",
+    "error.no_tasks": "Pick at least one to-do or question to save.",
     "error.not_found": "Not found.",
     "error.no_question": "Type a question first.",
 
@@ -102,6 +102,7 @@
     "notes.sampleToast": "Sample conversation: fictional, not a real consultation.",
 
     "review.verify": "Check with your doctor or midwife",
+    "review.byCode": "Found by the date check, not the AI",
     "review.danger": "A danger sign was mentioned in the conversation ({signs}). If it is happening now, open {link}.",
     "review.mock": "TEST MODE: these to-dos come from simple rules, not an AI model.",
     "review.summary": "Summary (written by AI, check the transcript)",
@@ -125,6 +126,8 @@
     "ask.sampleCitation": "sample, not official",
     "ask.openEmergency": "Open Emergency",
     "ask.added": "Added to your questions for the check-up.",
+    "ask.saveQuestion": "Add to my check-up questions",
+    "ask.fromGuide": "Quoted word for word from the guide.",
 
     "nearby.title": "Near me",
     "nearby.exampleLocation": "{name} · example location",
@@ -190,7 +193,7 @@
     "error.llm_unavailable": "Hindi nakakonekta ang local AI model. Tingnan ang README (Ollama).",
     "error.llm_model_missing": "Hindi pa na-download ang AI model na {model}. Tingnan ang README (ollama pull).",
     "error.bad_model_output": "Hindi mabasa ang sagot ng AI. Subukan ulit.",
-    "error.no_tasks": "Pumili ng kahit isang gagawin na ise-save.",
+    "error.no_tasks": "Pumili ng kahit isang gagawin o tanong na ise-save.",
     "error.not_found": "Hindi mahanap.",
     "error.no_question": "Mag-type muna ng tanong.",
 
@@ -270,6 +273,7 @@
     "notes.sampleToast": "Sample na usapan: kathang-isip, hindi totoong konsultasyon.",
 
     "review.verify": "I-verify sa doktor o midwife",
+    "review.byCode": "Nahanap ng date check, hindi ng AI",
     "review.danger": "May nabanggit na babalang senyales sa usapan ({signs}). Kung nangyayari ito ngayon, buksan ang {link}.",
     "review.mock": "TEST MODE: ang mga task ay galing sa simpleng rules, hindi sa AI model.",
     "review.summary": "Buod (isinulat ng AI, tingnan ang transcript)",
@@ -292,6 +296,8 @@
     "ask.sampleCitation": "sample, hindi opisyal",
     "ask.openEmergency": "Buksan ang Emergency",
     "ask.added": "Naidagdag sa mga tanong para sa check-up.",
+    "ask.saveQuestion": "Idagdag sa mga tanong sa check-up",
+    "ask.fromGuide": "Sinipi nang buo mula sa gabay.",
 
     "nearby.title": "Malapit sa akin",
     "nearby.exampleLocation": "{name} · halimbawang lokasyon",

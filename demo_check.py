@@ -124,7 +124,7 @@ def _():
 
 @step("Ask: question covered by a guide gets a cited answer")
 def _():
-    r = app.ask({"question": "What fruit is good for me?"})
+    r = app.ask({"question": "What should I bring to my check-up?"})
     assert r["kind"] == "answer" and r["citations"], r
     return r["answer"][:70]
 
@@ -164,10 +164,27 @@ def _():
         httpd.server_close()
 
 
-@step("Speech-to-text installed (needed to record; otherwise paste a transcript)")
+@step("Speech-to-text reads a recording, and its model is downloaded (needed to record)")
 def _():
     assert stt.backend(), "none installed - recording will not work (see README)"
-    return stt.backend()
+    if stt.backend() != "faster-whisper":
+        return stt.backend()
+    import wave
+    from faster_whisper import decode_audio
+    from faster_whisper.utils import download_model
+    tone = Path(tmp.name) / "check.wav"
+    with wave.open(str(tone), "wb") as w:  # one second of silence, decoded the way recordings are
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(16000), w.writeframes(b"\0\0" * 16000)
+    try:
+        decode_audio(str(tone))
+    except TypeError as exc:
+        raise AssertionError(f"faster-whisper cannot read audio ({exc}): run  py -3.13 -m pip install -r requirements.txt")
+    size = os.environ.get("PTP_WHISPER_MODEL", "small")
+    try:
+        download_model(size, local_files_only=True)
+    except Exception:
+        raise AssertionError(f"speech model '{size}' is not downloaded yet: run the download step in the README while online")
+    return f"faster-whisper, model {size}"
 
 
 print()
