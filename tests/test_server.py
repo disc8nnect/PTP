@@ -6,12 +6,13 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 os.environ["PTP_TODAY"] = "2026-10-09"
 
 from ptp import server
-from ptp.llm import MockLLM
+from ptp.llm import MockLLM, ModelMissing, OllamaLLM
 from ptp.store import Store
 
 
@@ -103,6 +104,36 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/transcribe", raw=b"")[0], 400)
         self.assertEqual(self.j("POST", "/api/extract", {"transcript": ""})[0], 400)
         self.assertTrue(len(self.j("GET", "/api/redflags")[1]["signs"]) >= 5)
+
+
+
+class ModelNotDownloaded(unittest.TestCase):
+    """Ollama is running but the model was never pulled: the app must say that, not "can't connect"."""
+
+    def test_missing_model_gets_its_own_code(self):
+        class NotFound(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(404)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        fake = HTTPServer(("127.0.0.1", 0), NotFound)
+        threading.Thread(target=fake.serve_forever, daemon=True).start()
+        try:
+            llm = OllamaLLM(base_url=f"http://127.0.0.1:{fake.server_address[1]}/v1", model="tiny:1b")
+            with self.assertRaises(ModelMissing):
+                llm.chat("extract", "s", "u")
+            with tempfile.TemporaryDirectory() as tmp:
+                app = server.App(store=Store(Path(tmp)), llm=llm)
+                with self.assertRaises(server.ApiError) as caught:
+                    app.ask({"question": "What fruit is good for me?"})
+                self.assertEqual(caught.exception.code, "llm_model_missing")
+                self.assertEqual(app.health()["llm_model"], "tiny:1b")
+        finally:
+            fake.shutdown()
+            fake.server_close()
 
 
 if __name__ == "__main__":

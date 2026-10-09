@@ -74,7 +74,7 @@ function langToggle(big = false) {
 // ------------------------------------------------------------------ helpers
 function errorText(code) {
   const key = 'error.' + code;
-  return code && S()[key] !== undefined ? t(key) : t('error.generic');
+  return code && S()[key] !== undefined ? t(key, { model: state.health?.llm_model || '' }) : t('error.generic');
 }
 
 async function api(path, opts = {}) {

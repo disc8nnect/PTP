@@ -21,7 +21,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import dates, extract, geo, rag, safety, stt
-from .llm import LLMUnavailable, get_llm
+from .llm import LLMUnavailable, ModelMissing, get_llm
 from .store import Store
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -40,6 +40,13 @@ class ApiError(Exception):
     def __init__(self, status: int, message: str, code: str = "error"):
         super().__init__(message)
         self.status, self.message, self.code = status, message, code
+
+
+def llm_error(exc: LLMUnavailable) -> ApiError:
+    """A model problem as an API error; "not downloaded" gets its own code so the app can say so."""
+    if isinstance(exc, ModelMissing):
+        return ApiError(503, str(exc), "llm_model_missing")
+    return ApiError(503, str(exc), "llm_unavailable")
 
 
 class App:
@@ -78,6 +85,7 @@ class App:
         return {
             "mode": getattr(self.llm, "name", "unknown"),
             "llm_ready": bool(self.llm.available()),
+            "llm_model": getattr(self.llm, "model", None),
             "stt": stt.backend(),
             "red_flags_reviewed": bool(self.flags.get("reviewed")),
             "guide_chunks": len(self.chunks),
@@ -167,7 +175,7 @@ class App:
         try:
             return extract.extract_visit(transcript, visit, self.llm)
         except LLMUnavailable as exc:
-            raise ApiError(503, str(exc), "llm_unavailable")
+            raise llm_error(exc)
         except extract.ExtractError as exc:
             raise ApiError(422, str(exc), "bad_model_output")
 
@@ -195,7 +203,7 @@ class App:
         try:
             result = rag.answer(q[:500], self.chunks, self.llm, self.flags)
         except LLMUnavailable as exc:
-            raise ApiError(503, str(exc), "llm_unavailable")
+            raise llm_error(exc)
         if result.get("add_to_questions"):
             self.store.add_question(q[:300])
         return result

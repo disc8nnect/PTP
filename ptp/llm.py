@@ -28,6 +28,10 @@ class LLMUnavailable(RuntimeError):
     """The local model server cannot be reached."""
 
 
+class ModelMissing(LLMUnavailable):
+    """The server is running but this model has not been downloaded yet (ollama pull)."""
+
+
 class OllamaLLM:
     name = "ollama"
 
@@ -62,6 +66,10 @@ class OllamaLLM:
             with _OPENER.open(req, timeout=self.timeout) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
             return payload["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:  # Ollama answers 404 for a model that was never pulled
+                raise ModelMissing(f"Model {self.model} is not downloaded. Run: ollama pull {self.model}") from exc
+            raise LLMUnavailable(f"Local model not reachable at {self.base_url}: {exc}") from exc
         except (urllib.error.URLError, OSError, KeyError, IndexError, ValueError) as exc:
             raise LLMUnavailable(f"Local model not reachable at {self.base_url}: {exc}") from exc
 
