@@ -11,13 +11,19 @@ Built for the AppBuildersPH Hackathon 2026 (theme: Local AI). Everything runs on
 | **Emergency** | `tel:911`, nearest facility, danger-sign list. |
 | **Buod para sa midwife** | One printable page: week, due date, confirmed tasks, saved questions. This replaces online consultation. |
 
+## Language
+
+The app opens in **English**. Users can switch to **Tagalog** with the language buttons on the first setup screen or the `EN | TL` switch on Home; the browser remembers the choice. Only the app's own text changes: AI answers and visit notes stay in the language the question or visit was in, so a question typed in Tagalog gets a Tagalog answer either way.
+
+All screen text is in `web/strings.json`, one block per language. To fix a translation, edit that file; `tests/test_strings.py` fails if a line is missing in either language or its `{placeholders}` differ.
+
 ## Run it
 
 Requires Python 3.10+ and nothing else (standard library only).
 
 ```
 python3 -m ptp.server          # open http://127.0.0.1:8765
-python3 -m unittest discover -s tests -t .      # 44 tests
+python3 -m unittest discover -s tests -t .      # 50 tests
 python3 demo_check.py              # real local model, Wi-Fi OFF  <- run this before the demo
 python3 demo_check.py --mock       # app code only; NOT AI
 ```
@@ -66,4 +72,4 @@ Safety rules run before any model. The model only proposes; code verifies (quote
 
 ## Layout
 
-`ptp/` core (dates, grounding, safety, geo, rag, extract, llm, stt, store, server) · `web/` the UI (vanilla JS/CSS, no external files) · `data/` guides, red flags, facilities, sample visit · `tests/` · `demo_check.py`
+`ptp/` core (dates, grounding, safety, geo, rag, extract, llm, stt, store, server) · `web/` the UI (vanilla JS/CSS, no external files; screen text in `strings.json`) · `data/` guides, red flags, facilities, sample visit · `tests/` · `demo_check.py`

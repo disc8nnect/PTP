@@ -44,7 +44,8 @@ class ServerTest(unittest.TestCase):
         return status, json.loads(body)
 
     def test_a_static_files(self):
-        for p, ctype in (("/", "text/html"), ("/app.js", "javascript"), ("/style.css", "text/css")):
+        for p, ctype in (("/", "text/html"), ("/app.js", "javascript"), ("/style.css", "text/css"),
+                         ("/strings.json", "application/json")):
             status, body, h = self.call("GET", p)
             self.assertEqual(status, 200, p)
             self.assertIn(ctype, h["Content-Type"])
@@ -55,8 +56,10 @@ class ServerTest(unittest.TestCase):
         s, h = self.j("GET", "/api/health")
         self.assertEqual((s, h["mode"], h["red_flags_reviewed"]), (200, "mock", False))
         self.assertIsNone(self.j("GET", "/api/profile")[1]["profile"])
-        self.assertEqual(self.j("POST", "/api/profile", {"lmp": "2027-01-01"})[0], 400)
-        self.assertEqual(self.j("POST", "/api/profile", {"lmp": "garbage"})[0], 400)
+        # Each date problem has its own code, so the app can explain it in the chosen language.
+        self.assertEqual(self.j("POST", "/api/profile", {"lmp": "2027-01-01"}), (400, {"error": "The last menstrual period cannot be in the future.", "code": "lmp_future"}))
+        self.assertEqual(self.j("POST", "/api/profile", {"lmp": "2025-01-01"})[1]["code"], "lmp_too_old")
+        self.assertEqual(self.j("POST", "/api/profile", {"lmp": "garbage"})[1]["code"], "bad_lmp")
         s, p = self.j("POST", "/api/profile", {"name": "Maria", "lmp": "2026-04-24"})
         self.assertEqual(p["profile"]["due_date"], "2027-01-29")
         self.assertEqual(p["profile"]["weeks"], 24)
@@ -90,6 +93,8 @@ class ServerTest(unittest.TestCase):
 
     def test_d_facilities_and_errors(self):
         s, f = self.j("GET", "/api/facilities")
+        self.assertTrue(f["location"]["is_default"])
+        self.assertFalse(self.j("GET", "/api/facilities?lat=14.86&lon=120.82")[1]["location"]["is_default"])
         d = [x["distance_km"] for x in f["facilities"]]
         self.assertEqual(d, sorted(d))
         self.assertEqual(self.j("GET", "/api/facilities?lat=abc")[0], 400)

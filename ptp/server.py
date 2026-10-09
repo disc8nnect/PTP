@@ -95,9 +95,9 @@ class App:
         except ValueError:
             raise ApiError(400, "lmp must be a date like 2026-04-24", "bad_lmp")
         if lmp > today():
-            raise ApiError(400, "The last menstrual period cannot be in the future.", "bad_lmp")
+            raise ApiError(400, "The last menstrual period cannot be in the future.", "lmp_future")
         if (today() - lmp).days > 300:
-            raise ApiError(400, "That date is more than 300 days ago. Please check it.", "bad_lmp")
+            raise ApiError(400, "That date is more than 300 days ago. Please check it.", "lmp_too_old")
         self.store.set_profile(str(body.get("name", "")).strip()[:60], lmp)
         return self.get_profile()
 
@@ -205,7 +205,8 @@ class App:
         used_default = lat is None or lon is None
         lat, lon = (default["lat"], default["lon"]) if used_default else (lat, lon)
         return {
-            "location": {"lat": lat, "lon": lon, "name": default["name"] if used_default else "Your location"},
+            "location": {"lat": lat, "lon": lon, "name": default["name"] if used_default else "Your location",
+                         "is_default": used_default},
             "sample": bool(self.facility_data.get("sample")),
             "facilities": geo.nearest(self.facility_data["facilities"], lat, lon, kind),
         }

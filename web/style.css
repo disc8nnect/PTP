@@ -77,6 +77,15 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; 
 .box { width: 24px; height: 24px; border-radius: 8px; border: 2px solid #9ab0ad; background: transparent; flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; color: #fff; }
 .box.on { background: var(--primary); border-color: var(--primary); }
 .task-title.done { text-decoration: line-through; color: var(--muted); }
+.head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+/* language switch (EN | TL) */
+.lang { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--soft); }
+.lang button { min-width: 44px; min-height: 36px; padding: 0 12px; border: none; border-radius: 999px; background: transparent;
+  color: var(--primary-ink); font-size: 13px; font-weight: 700; cursor: pointer; }
+.lang button.on { background: var(--primary); color: #fff; }
+.lang.big { display: flex; }
+.lang.big button { flex: 1; min-height: 44px; font-size: 15px; }
 
 /* calendar */
 .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; text-align: center; }
