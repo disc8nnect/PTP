@@ -7,3 +7,4 @@ compose.yaml
 state/
 **/__pycache__
 **/*.pyc
+data/map/

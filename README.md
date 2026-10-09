@@ -7,7 +7,7 @@ Built for the AppBuildersPH Hackathon 2026 (theme: Local AI). Everything runs on
 | **Tala ng Konsulta** (from **Record a visit** on Home) | Record (with consent) or paste a doctor/midwife visit. A local speech model writes the transcript; a local language model proposes a summary and tasks. **Code checks the AI**: a task is kept only if its quote appears in the transcript and is not a question; dates ("susunod na Huwebes, alas nuwebe") are worked out by code, not guessed by the model; a return visit with a clear date that the model missed is added by code (and labelled so); the summary is hidden if it uses words, numbers or negations the transcript does not. You tick what to keep. |
 | **Kalendaryo** | Month view, due date, trimester bar, upcoming tasks. Due date = LMP + 280 days (an estimate, shown as one). |
 | **Tanong (Ask)** | Answers only from the pregnancy guide stored on the device (about 50 topics in Tagalog and English: check-ups, food and drink, common discomforts, exercise and sleep, baby's movements, danger signs, labour, after birth), with a citation. **Code checks every sentence** of the model's answer against the guide passage it cites (words, numbers, negations, language) and drops the rest; if nothing survives, the app quotes the guide itself. Medicine and "is this normal?" questions get a fixed refusal; danger-sign words go to Emergency. If no guide covers it, it says so and offers a button to save the question for the midwife. |
-| **Malapit** | Facilities sorted by distance, with a schematic offline map. |
+| **Malapit** | A real street map (OpenStreetMap) that works with Wi-Fi off once your area is downloaded, with numbered pins for the nearest hospitals, clinics and birthing homes. Set where you are by GPS or by tapping the map (laptops usually have no GPS offline); it stays on the device. Without a downloaded map, a simple drawing of distances. |
 | **Emergency** (red button in the middle of the tab bar) | `tel:911`, nearest facility, danger-sign list. |
 | **Buod para sa midwife** | One printable page: week, due date, confirmed tasks, saved questions. This replaces online consultation. |
 
@@ -34,7 +34,8 @@ python3 demo_check.py --mock       # app code only; NOT AI
 
 1. **Language model** — install [Ollama](https://ollama.com), then `ollama pull gemma3:4b` (the default; about 3.3 GB). See "Choosing the model" below for why, and `PTP_LLM_MODEL=<model>` to use another.
 2. **Speech to text** — `pip install -r requirements.txt` (faster-whisper, with PyAV kept below 19: faster-whisper 1.2.1 cannot read audio with PyAV 19, so a plain `pip install faster-whisper` breaks recording), then download the speech model once: `python3 -c "from faster_whisper import download_model; download_model('small')"` (`PTP_WHISPER_MODEL=small`; set `PTP_STT_LANGUAGE=tl` to force Tagalog). whisper.cpp also works (`PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, plus `ffmpeg`). Without it, recording is unavailable and you paste the transcript. **Tagalog/Taglish quality on clinic audio is untested** — record a staged visit and look at it.
-3. Run `python3 demo_check.py`, then turn Wi-Fi off and run it again. It now decodes a test sound and checks the speech model is downloaded, not just installed.
+3. **Street map** — `python3 -m ptp.offline_map download --lat 14.85 --lon 120.81` with the latitude and longitude of your area (in Google Maps, right-click a place and click the numbers to copy them). It saves street detail within 8 km (`--km`) and a rougher map within 60 km, about 10-30 MB, to `data/map/`, in a minute or two. It also lists the hospitals, clinics and birthing homes OpenStreetMap has in that area and uses them on Nearby instead of the three fictional ones; check that list, since OpenStreetMap can be incomplete (`--no-facilities` keeps your own `data/facilities.json`). `python3 -m ptp.offline_map info` shows what is downloaded.
+4. Run `python3 demo_check.py`, then turn Wi-Fi off and run it again. It now decodes a test sound and checks the speech model is downloaded, not just installed.
 
 ## Choosing the model
 
@@ -53,6 +54,7 @@ Before the code checks, the models made dangerous mistakes: Llama 3.2 3B (which 
 
 ```
 py -3.13 -m pip install -r requirements.txt
+py -3.13 -m ptp.offline_map download --lat 14.85 --lon 120.81   # once, online: street map of your area
 py -3.13 -m ptp.server
 py -3.13 -m unittest discover -s tests -t .
 py -3.13 demo_check.py
@@ -70,11 +72,12 @@ Runs the app and the local AI model server (Ollama) together, so you don't insta
 
 ```
 docker compose up -d --build                          # first time, WITH internet
-docker compose logs -f ollama-pull whisper-download   # wait until both models are downloaded (a few GB, once)
+docker compose logs -f ollama-pull whisper-download map-download   # wait for the models and the street map (a few GB, once)
 ```
 
 Open http://localhost:8765. After that first run everything works with Wi-Fi off: `docker compose up -d` starts it, `docker compose down` stops it, and profile, tasks, recordings and models stay in Docker volumes. If you forget the download, the app says "The AI model … is not downloaded yet" instead of answering.
 
+- **Street map of your area:** put `PTP_MAP_LAT=14.85` and `PTP_MAP_LON=120.81` (your area) in `.env` before the first `docker compose up`. It is downloaded once; to download a different area later, add `PTP_MAP_REFRESH=1`, run `docker compose up -d` while online, then remove that line.
 - **Another model:** put `PTP_LLM_MODEL=llama3.2:3b` in a `.env` file next to `compose.yaml` and run `docker compose up -d` while online; it downloads on start. Same for `PTP_WHISPER_MODEL=base`.
 - **Phones on the same Wi-Fi or hotspot:** add `PTP_BIND=0.0.0.0` to `.env`, restart, and open `http://<laptop-ip>:8765` on the phone. By default only the laptop itself can open the app.
 - **Speed and memory:** Ollama inside Docker runs on the CPU and uses system RAM. If the laptop has an NVIDIA GPU, install Ollama for Windows instead, set `PTP_LLM_URL=http://host.docker.internal:11434/v1` in `.env`, and start only the app: `docker compose up -d --no-deps app whisper-download`. On a 16 GB laptop, running without Docker (see Windows 11 above) is lighter still.
@@ -83,14 +86,14 @@ Open http://localhost:8765. After that first run everything works with Wi-Fi off
 
 ## Environment variables
 
-`PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_LLM_KEEP_ALIVE` (how long Ollama keeps the model loaded after PTP starts; default `8h`, so the first answer in a demo is not slow), `PTP_WHISPER_MODEL`, `PTP_WHISPER_DEVICE` (`cpu` default, or `cuda`), `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.
+`PTP_MAP` (the downloaded street map; default `data/map/area.mbtiles`), `PTP_FACILITIES` (your own facility list, used instead of the one found in the map), `PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_LLM_KEEP_ALIVE` (how long Ollama keeps the model loaded after PTP starts; default `8h`, so the first answer in a demo is not slow), `PTP_WHISPER_MODEL`, `PTP_WHISPER_DEVICE` (`cpu` default, or `cuda`), `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.
 
 ## What you must replace before this is real
 
 - `data/guides/pregnancy_guide.md` — our own summary of WHO and NHS advice (sources per topic in `data/GUIDE_SOURCES.md`), **not reviewed by a health worker** (front matter says `sample: true`; the UI labels every answer from it). A doctor or midwife must review it, including the Tagalog; add Philippine DOH material where it differs. Real guides go in `data/guides/` with `source`, `publisher`, `retrieved`, `license` in the front matter; delete the `sample` line only after review. Check each license first.
   Format: one paragraph per topic under `##` headings, Tagalog then English, and a hidden `<!-- keywords: ... -->` line listing the everyday words people use for that topic (both languages), so search finds it. `tests/test_guides.py` checks the format and that 20 everyday questions find the right paragraph.
 - `data/red_flags.json` — an **unreviewed placeholder** (`"reviewed": false`; Emergency shows a warning). A doctor or midwife must review it, then set `reviewed` to `true`. A test fails if you flip it without thinking, on purpose.
-- `data/facilities.json` — three **fictional** facilities. Replace with a real list and its source.
+- `data/facilities.json` — three **fictional** facilities, used until a street map is downloaded. The map download replaces them with the hospitals, clinics and birthing homes OpenStreetMap lists for your area (`data/map/facilities.json`): check that list with a local health worker, add missing ones (barangay health stations are often missing) and phone numbers, and keep it as your own list with `PTP_FACILITIES`.
 
 ## Known weak spots
 
@@ -98,7 +101,7 @@ Open http://localhost:8765. After that first run everything works with Wi-Fi off
 - **The code checks are word-level**: they catch added words, numbers and negations, not every change of meaning. The visit summary is labelled as written by AI for that reason.
 - **The guide decides what Ask can answer.** In our last run with Gemma 3 4B, 27 of 30 test questions got an answer, 7 of them by quoting the guide (questions in `tests/test_guides.py`); the other three were a car-engine question, papaya (not in the guide), and "Ilang kilo ang dapat kong itaba?", which search finds now. topics the guide does not cover ("Is papaya safe to eat?") get "not found" and the button to save the question. Add a paragraph to cover a new topic. When most of the model's sentences fail the check, Ask shows the guide's own paragraph instead, because what is left can be half an answer.
 - **Microphone**: browsers allow it only on `localhost` or HTTPS. Use the laptop's own browser. Opening the app from a phone over a hotspot (`PTP_HOST=0.0.0.0`) works for everything except recording.
-- The map is a schematic drawing of distances, not street tiles.
+- **The street map covers only the downloaded area** (street detail within 8 km by default). Distances are straight lines, not by road, and there are no directions. Laptops find their location through Wi-Fi networks, which needs internet, so offline the user taps the map instead. The map needs WebGL (any recent Chrome or Edge); without it, the simple drawing is shown. It was tested in Chromium with a 2024 Protomaps test file (Florence), not yet with a current download of a Philippine area: run `demo_check.py` and open Nearby after downloading yours.
 - State is one JSON file; no encryption. Recordings stay in `state/recordings/`. Delete them if the consultation was real.
 - Tested with real local models (see "Choosing the model") and with recordings from Chromium's test microphone decoded by faster-whisper. Not tested: the Whisper model on real clinic audio, phones, browsers other than Chromium, Windows, accessibility tools.
 
@@ -108,4 +111,4 @@ Safety rules run before any model. The model only proposes; code verifies (quote
 
 ## Layout
 
-`ptp/` core (dates, grounding, safety, geo, rag, extract, llm, stt, store, server) · `web/` the UI (vanilla JS/CSS, no external files; screen text in `strings.json`) · `data/` guides, red flags, facilities, sample visit · `tests/` · `demo_check.py`
+`ptp/` core (dates, grounding, safety, geo, rag, extract, llm, stt, store, offline_map, server) · `web/` the UI (vanilla JS/CSS; screen text in `strings.json`; `web/vendor/map/` holds the map library, its fonts and style, bundled so nothing is fetched from the internet) · `data/` guides, red flags, facilities, sample visit · `tests/` · `demo_check.py`

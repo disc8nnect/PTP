@@ -19,9 +19,9 @@ import time
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
-from . import dates, extract, geo, rag, safety, stt
+from . import dates, extract, geo, offline_map, rag, safety, stt
 from .llm import LLMUnavailable, ModelMissing, get_llm
 from .store import Store
 
@@ -29,7 +29,18 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 MAX_BODY = 60 * 1024 * 1024
 # Fixed types: Windows can map .js to text/plain through its registry.
-TYPES = {".html": "text/html", ".js": "application/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml"}
+TYPES = {".html": "text/html", ".js": "application/javascript", ".css": "text/css", ".json": "application/json",
+         ".svg": "image/svg+xml", ".png": "image/png", ".pbf": "application/x-protobuf"}
+TILE = re.compile(r"^/map/tiles/(\d{1,2})/(\d+)/(\d+)\.mvt$")
+FONTS = WEB / "vendor" / "map" / "fonts"
+
+
+def facilities_file() -> Path:
+    """PTP_FACILITIES, else the facilities found in the downloaded map, else the sample list."""
+    if os.environ.get("PTP_FACILITIES"):
+        return Path(os.environ["PTP_FACILITIES"])
+    from_map = offline_map.facilities_path()
+    return from_map if from_map.is_file() else ROOT / "data" / "facilities.json"
 
 
 def today() -> date:
@@ -54,14 +65,35 @@ class App:
     """All the app logic, separate from HTTP so tests and demo_check can call it directly."""
 
     def __init__(self, store: Store | None = None, llm=None, guides_dir: Path | None = None,
-                 facilities_path: Path | None = None, flags_path: Path | None = None):
+                 facilities_path: Path | None = None, flags_path: Path | None = None,
+                 map_path: Path | None = None):
         self.store = store or Store()
         self.llm = llm or get_llm()
         self.chunks = rag.load_guides(guides_dir)
         self.flags = safety.load_red_flags(flags_path)
-        fpath = facilities_path or ROOT / "data" / "facilities.json"
-        with open(fpath, encoding="utf-8") as fh:
-            self.facility_data = json.load(fh)
+        self._facilities_path = facilities_path
+        self._facilities: tuple = (None, {})  # (file and its time, contents)
+        self._map_path = map_path
+        self._map = offline_map.load(map_path)  # None until the area is downloaded (see README)
+        self._map_checked = time.time()
+
+    # The map and the facilities found in it can be downloaded while PTP runs (Docker downloads
+    # the map next to the running app), so both are looked up again instead of only at start.
+    @property
+    def map(self) -> offline_map.MBTiles | None:
+        if self._map is None and time.time() - self._map_checked > 10:
+            self._map_checked = time.time()
+            self._map = offline_map.load(self._map_path)
+        return self._map
+
+    @property
+    def facility_data(self) -> dict:
+        path = Path(self._facilities_path or facilities_file())
+        stamp = (str(path), path.stat().st_mtime)
+        if stamp != self._facilities[0]:
+            with open(path, encoding="utf-8") as fh:
+                self._facilities = (stamp, json.load(fh))
+        return self._facilities[1]
 
     # ---------------------------------------------------------------- helpers
     def _profile(self) -> dict | None:
@@ -92,6 +124,7 @@ class App:
             "guide_chunks": len(self.chunks),
             "guides_are_sample": any(c["sample"] for c in self.chunks),
             "facilities_are_sample": bool(self.facility_data.get("sample")),
+            "offline_map": bool(self.map),
             "today": today().isoformat(),
         }
 
@@ -216,15 +249,23 @@ class App:
         return {"questions": self.store.snapshot()["questions"]}
 
     def facilities(self, lat: float | None, lon: float | None, kind: str | None) -> dict:
-        default = self.facility_data["default_location"]
+        data = self.facility_data
+        default = data["default_location"]
         used_default = lat is None or lon is None
         lat, lon = (default["lat"], default["lon"]) if used_default else (lat, lon)
         return {
             "location": {"lat": lat, "lon": lon, "name": default["name"] if used_default else "Your location",
                          "is_default": used_default},
-            "sample": bool(self.facility_data.get("sample")),
-            "facilities": geo.nearest(self.facility_data["facilities"], lat, lon, kind),
+            "sample": bool(data.get("sample")),
+            "source": data.get("source", ""),
+            "retrieved": data.get("retrieved", ""),
+            "facilities": geo.nearest(data["facilities"], lat, lon, kind),
         }
+
+    def map_info(self) -> dict:
+        """What the downloaded street map covers, so the Nearby screen can show it."""
+        m = self.map
+        return dict(m.info, available=True) if m else {"available": False}
 
     def sample(self) -> dict:
         """A fictional staged visit, for demos and for trying the app without a recording."""
@@ -279,6 +320,8 @@ def route(app: App, method: str, path: str, query: dict, body: bytes, headers) -
             return app.calendar(int(query.get("year", [t.year])[0]), int(query.get("month", [t.month])[0]))
         if path == "/api/facilities":
             return app.facilities(num("lat"), num("lon"), (query.get("kind") or [None])[0])
+        if path == "/api/map":
+            return app.map_info()
         if path == "/api/redflags":
             return app.red_flags()
         if path == "/api/summary":
@@ -311,13 +354,25 @@ def make_handler(app: App):
             if os.environ.get("PTP_LOG"):
                 sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
-        def _send(self, status: int, payload: bytes, ctype: str):
+        def _send(self, status: int, payload: bytes, ctype: str, headers: dict | None = None):
             self.send_response(status)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(payload)))
-            self.send_header("Cache-Control", "no-store")
+            for k, v in (headers or {"Cache-Control": "no-store"}).items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(payload)
+
+        def _tile(self, z: int, x: int, y: int):
+            """One vector tile of the downloaded area; 204 (empty) outside it."""
+            m = app.map
+            data = m.tile(z, x, y) if m else None
+            if not data:
+                return self._send(204, b"", "application/x-protobuf", {"Cache-Control": "max-age=3600"})
+            headers = {"Cache-Control": "max-age=86400"}
+            if m.info["compression"] == "gzip":
+                headers["Content-Encoding"] = "gzip"
+            self._send(200, data, "application/x-protobuf", headers)
 
         def _json(self, status: int, data: dict):
             self._send(status, json.dumps(data, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
@@ -338,8 +393,15 @@ def make_handler(app: App):
                     return self._json(500, {"error": "Something went wrong on the device.", "code": "server_error"})
             if method != "GET":
                 return self._json(405, {"error": "Method not allowed.", "code": "bad_method"})
-            rel = "index.html" if url.path in ("/", "") else url.path.lstrip("/")
+            tile = TILE.match(url.path)
+            if tile:
+                return self._tile(*map(int, tile.groups()))
+            path = unquote(url.path)  # map font folders have spaces: /vendor/map/fonts/Noto%20Sans...
+            rel = "index.html" if path in ("/", "") else path.lstrip("/")
             target = (WEB / rel).resolve()
+            if FONTS.resolve() in target.parents and target.suffix == ".pbf" and not target.is_file():
+                # Letters outside the bundled ranges: an empty set, so the map just skips them.
+                return self._send(200, b"", "application/x-protobuf")
             if WEB.resolve() not in target.parents or not target.is_file():
                 return self._send(404, b"Not found", "text/plain; charset=utf-8")
             ctype = TYPES.get(target.suffix.lower()) or mimetypes.guess_type(str(target))[0] or "application/octet-stream"
@@ -371,6 +433,11 @@ def main() -> None:
         print("  MOCK MODE: a rule-based stand-in is answering, not an AI model. For tests only.")
     if not h["red_flags_reviewed"]:
         print("  Warning: the red-flag list is an unreviewed placeholder.")
+    if app.map:
+        print(f"  Offline street map: downloaded {app.map.info['retrieved'] or ''} (Nearby screen).")
+    else:
+        print("  Offline street map: not downloaded, so Nearby shows a simple drawing. While online, run:"
+              " python3 -m ptp.offline_map download --lat <latitude> --lon <longitude>")
     if h["guides_are_sample"]:
         print("  Note: the guides are not yet reviewed by a health worker.")
     if h["llm_ready"] and hasattr(app.llm, "warm_up"):

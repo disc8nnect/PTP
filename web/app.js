@@ -19,7 +19,7 @@ const state = {
   health: null,
   month: null,                       // {year, month}
   chat: [],
-  nearby: { kind: 'all', loc: null }, // loc = {lat, lon} from the device, or null for the demo location
+  nearby: { kind: 'all', loc: null }, // loc = {lat, lon} set by the user (GPS or tap on the map), or null for the demo location
   notes: { stage: 'input', consent: false, transcript: '', visitDate: '', result: null, picked: new Set(), pickedQ: new Set(),
            recording: false, seconds: 0, message: '' },
 };
@@ -141,6 +141,7 @@ async function render() {
   tabs.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   const el = $('#view');
   el.classList.toggle('no-tabs', view === 'emergency');
+  if (view !== 'nearby') dropMap();
   try {
     await routes[view](el);
   } catch (err) {
@@ -420,6 +421,28 @@ async function ask(q) {
 }
 
 // ------------------------------------------------------------------ nearby
+/* Two maps. With a downloaded area (python3 -m ptp.offline_map download, see README) it is a
+   real street map: OpenStreetMap vector tiles drawn by MapLibre GL, every file served by PTP
+   itself, so it works with Wi-Fi off. Without one, or without WebGL, a simple drawing of
+   distances. The location the user sets is kept on this device only (localStorage). */
+const LOC_KEY = 'ptp.loc';
+let mapInfo;          // /api/map, fetched once
+let nearbyMap = null; // the MapLibre map while the Nearby screen is open
+let mapMarkers = [];
+let pickingLoc = false;
+
+function savedLoc() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LOC_KEY));
+    return v && Number.isFinite(v.lat) && Number.isFinite(v.lon) ? { lat: v.lat, lon: v.lon } : null;
+  } catch (_) { return null; }
+}
+function setLoc(loc) {
+  state.nearby.loc = loc;
+  try { loc ? localStorage.setItem(LOC_KEY, JSON.stringify(loc)) : localStorage.removeItem(LOC_KEY); } catch (_) { /* this visit only */ }
+}
+const locQuery = () => (state.nearby.loc ? `?lat=${state.nearby.loc.lat}&lon=${state.nearby.loc.lon}` : '');
+
 function mapSVG(loc, items) {
   const W = 350, H = 216, pad = 34;
   const lat0 = loc.lat, lon0 = loc.lon, k = Math.cos(lat0 * Math.PI / 180);
@@ -436,37 +459,138 @@ function mapSVG(loc, items) {
     ${pts.map((p) => pin(X(p.x), Y(p.y), KIND_COLORS[p.f.kind] || '#555', p.f.name.length > 22 ? p.f.name.slice(0, 21) + '…' : p.f.name)).join('')}</svg>`;
 }
 
+function hasWebGL() {
+  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (_) { return false; }
+}
+
+// MapLibre is about 1 MB, so it loads the first time Nearby opens, not with the app.
+function loadMapLib() {
+  if (!loadMapLib.p) {
+    loadMapLib.p = new Promise((resolve) => {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet'; css.href = '/vendor/map/maplibre-gl.css';
+      document.head.appendChild(css);
+      const js = document.createElement('script');
+      js.src = '/vendor/map/maplibre-gl.js';
+      js.onload = () => resolve(window.maplibregl || null);
+      js.onerror = () => resolve(null);
+      document.head.appendChild(js);
+    });
+  }
+  return loadMapLib.p;
+}
+
+function dropMap() {
+  if (nearbyMap) { nearbyMap.remove(); nearbyMap = null; mapMarkers = []; }
+  pickingLoc = false;
+}
+
+const inside = (b, lat, lon) => b && b.length === 4 && lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];
+
+function pinEl(color, label) {
+  const el = document.createElement('div');
+  el.className = 'pin';
+  el.innerHTML = `<svg viewBox="-13 -34 26 36" width="30" height="40" aria-hidden="true"><path d="M0 0c-8-9-12-14-12-20a12 12 0 0 1 24 0c0 6-4 11-12 20z" fill="${color}" stroke="#fff" stroke-width="1.5"/><text x="0" y="-15.5" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">${esc(label)}</text></svg>`;
+  return el;
+}
+
+async function streetMap(slot, d, shown) {
+  const gl = await loadMapLib();
+  if (!gl) return false;
+  const here = d.location;
+  if (!nearbyMap) {
+    const style = await (await fetch('/vendor/map/style.json')).json();
+    const abs = (u) => new URL(u, location.origin).href.replace(/%7B/g, '{').replace(/%7D/g, '}');
+    style.glyphs = abs(style.glyphs);
+    style.sprite = abs(style.sprite);
+    Object.assign(style.sources.protomaps, { tiles: style.sources.protomaps.tiles.map(abs), maxzoom: mapInfo.maxzoom,
+      bounds: mapInfo.bounds, attribution: mapInfo.attribution });
+    const box = document.createElement('div');
+    box.className = 'map-gl';
+    slot.prepend(box);
+    const b = mapInfo.bounds;
+    nearbyMap = new gl.Map({ container: box, style, center: [here.lon, here.lat], zoom: 14, minZoom: 8, maxZoom: 18,
+      maxBounds: [[b[0] - 0.05, b[1] - 0.05], [b[2] + 0.05, b[3] + 0.05]], dragRotate: false, pitchWithRotate: false,
+      attributionControl: { compact: true } });
+    nearbyMap.touchZoomRotate.disableRotation();
+    nearbyMap.addControl(new gl.NavigationControl({ showCompass: false }), 'top-right');
+    nearbyMap.on('click', (e) => {
+      if (!pickingLoc || e.originalEvent.target.closest('.maplibregl-marker')) return;
+      pickingLoc = false;
+      setLoc({ lat: +e.lngLat.lat.toFixed(5), lon: +e.lngLat.lng.toFixed(5) });
+      toast(t('nearby.locSet'));
+      render();
+    });
+  } else {
+    slot.prepend(nearbyMap.getContainer());
+    nearbyMap.resize();
+  }
+  nearbyMap.getContainer().classList.toggle('picking', pickingLoc);
+  mapMarkers.forEach((m) => m.remove());
+  const you = document.createElement('div');
+  you.className = 'you-dot';
+  you.title = t(here.is_default ? 'nearby.exampleDot' : 'nearby.youDot');
+  mapMarkers = [new gl.Marker({ element: you }).setLngLat([here.lon, here.lat]).addTo(nearbyMap)];
+  shown.forEach((f, i) => {
+    const popup = new gl.Popup({ offset: 30, closeButton: false })
+      .setHTML(`<strong>${esc(f.name)}</strong><br>${esc(S().kinds[f.kind] || f.label || '')} · ${f.distance_km.toFixed(1)} km`);
+    mapMarkers.push(new gl.Marker({ element: pinEl(KIND_COLORS[f.kind] || '#555', String(i + 1)), anchor: 'bottom' })
+      .setLngLat([f.lon, f.lat]).setPopup(popup).addTo(nearbyMap));
+  });
+  // Show where she is and the three nearest places.
+  const pts = [[here.lon, here.lat], ...shown.slice(0, 3).map((f) => [f.lon, f.lat])];
+  const lons = pts.map((p) => p[0]), lats = pts.map((p) => p[1]);
+  nearbyMap.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+    { padding: { top: 50, bottom: 30, left: 40, right: 50 }, maxZoom: 15, duration: 0 });
+  return true;
+}
+
 async function viewNearby(el) {
-  const loc = state.nearby.loc;
-  const q = loc ? `?lat=${loc.lat}&lon=${loc.lon}` : '';
-  const d = await api('/api/facilities' + q);
-  const all = d.facilities;
-  const shown = state.nearby.kind === 'all' ? all : all.filter((f) => f.kind === state.nearby.kind);
+  if (mapInfo === undefined) mapInfo = await api('/api/map').catch(() => ({ available: false }));
+  const d = await api('/api/facilities' + locQuery());
+  const shown = state.nearby.kind === 'all' ? d.facilities : d.facilities.filter((f) => f.kind === state.nearby.kind);
+  const street = mapInfo.available && hasWebGL();
   const btn = (k, label) => `<button class="${state.nearby.kind === k ? 'on' : ''}" data-action="kind" data-kind="${k}">${esc(label)}</button>`;
   const where = !d.location.is_default ? t('nearby.yourLocation')
-    : (d.sample ? t('nearby.exampleLocation', { name: d.location.name }) : d.location.name);
+    : t('nearby.exampleLocation', { name: d.location.name || t('nearby.mapCentre') });
+  const source = d.sample ? `<strong>${esc(t('nearby.fictional'))}</strong>`
+    : (d.source === 'openstreetmap' ? esc(t('nearby.osmSource', { date: fmtLong(d.retrieved) })) : '');
+  const outside = street && !inside(mapInfo.bounds, d.location.lat, d.location.lon);
   el.innerHTML = `
     <div><h1 class="page-title">${esc(t('nearby.title'))}</h1><p class="h-sub">${esc(where)}</p></div>
     <div class="filters">${btn('all', t('nearby.all'))}${btn('hospital', t('nearby.hospital'))}${btn('midwife', t('nearby.midwife'))}${btn('rhu', t('nearby.rhu'))}</div>
-    <div class="map">${mapSVG(d.location, shown)}<span class="tag">${esc(t('nearby.mapTag'))}</span></div>
-    <button class="btn secondary small" data-action="locate">${esc(t('nearby.locate'))}</button>
-    ${shown.map((f) => `<div class="facility"><span class="sw" style="background:${KIND_COLORS[f.kind] || '#555'}"></span>
+    <div class="map" id="near-map"><span class="tag">${esc(t(street ? 'nearby.streetTag' : 'nearby.mapTag'))}</span></div>
+    ${pickingLoc ? `<div class="note-warn">${esc(t('nearby.tapNow'))}</div>` : ''}
+    ${outside ? `<div class="note-warn">${esc(t('nearby.outside'))}</div>` : ''}
+    <div class="row wrap">
+      <button class="btn secondary small" data-action="locate">${esc(t('nearby.locate'))}</button>
+      ${street ? `<button class="btn secondary small" data-action="pick-loc">${esc(t(pickingLoc ? 'nearby.pickCancel' : 'nearby.pick'))}</button>` : ''}
+      ${state.nearby.loc ? `<button class="btn secondary small" data-action="clear-loc">${esc(t('nearby.clearLoc'))}</button>` : ''}
+    </div>
+    ${shown.map((f, i) => `<div class="facility"><span class="num" style="background:${KIND_COLORS[f.kind] || '#555'}">${street ? i + 1 : ''}</span>
        <div class="grow"><div style="font-size:15px;font-weight:700">${esc(f.name)}</div><div class="muted small">${esc(S().kinds[f.kind] || f.label || '')}</div></div>
        <strong>${f.distance_km.toFixed(1)} km</strong></div>`).join('') || `<div class="empty">${esc(t('nearby.none'))}</div>`}
-    <p class="muted small">${esc(t('nearby.straightLine'))} ${d.sample ? `<strong>${esc(t('nearby.fictional'))}</strong>` : ''}</p>`;
+    <p class="muted small">${esc(t('nearby.straightLine'))} ${source}</p>
+    ${mapInfo.available ? '' : `<p class="muted small">${esc(t('nearby.noStreetMap'))}</p>`}`;
+  const slot = $('#near-map');
+  if (!(street && await streetMap(slot, d, shown).catch(() => false))) {
+    dropMap();
+    slot.insertAdjacentHTML('afterbegin', mapSVG(d.location, shown));
+    slot.querySelector('.tag').textContent = t('nearby.mapTag');
+  }
 }
 
 function locate() {
-  if (!navigator.geolocation) { toast(t('nearby.noGeo')); return; }
+  const failed = () => toast(t(mapInfo && mapInfo.available ? 'nearby.geoFailedPick' : 'nearby.geoFailed'));
+  if (!navigator.geolocation) { failed(); return; }
   navigator.geolocation.getCurrentPosition(
-    (pos) => { state.nearby.loc = { lat: pos.coords.latitude, lon: pos.coords.longitude }; render(); },
-    () => toast(t('nearby.geoFailed')),
-    { timeout: 8000 });
+    (pos) => { setLoc({ lat: +pos.coords.latitude.toFixed(5), lon: +pos.coords.longitude.toFixed(5) }); render(); },
+    failed, { timeout: 8000, maximumAge: 600000 });
 }
 
 // ------------------------------------------------------------------ emergency + summary
 async function viewEmergency(el) {
-  const [flags, near] = await Promise.all([api('/api/redflags'), api('/api/facilities' + (state.nearby.loc ? `?lat=${state.nearby.loc.lat}&lon=${state.nearby.loc.lon}` : ''))]);
+  const [flags, near] = await Promise.all([api('/api/redflags'), api('/api/facilities' + locQuery())]);
   const first = near.facilities[0];
   // Each sign in the app language first, the other language after it (helpful for whoever is with her).
   const sign = (s) => (state.lang === 'tl' ? [s.tl, s.en] : [s.en, s.tl]);
@@ -531,6 +655,8 @@ document.addEventListener('click', async (ev) => {
       await post('/api/questions', { question: m.question }); m.saved = true; await viewAsk($('#view'));
     }
     else if (a === 'locate') locate();
+    else if (a === 'pick-loc') { pickingLoc = !pickingLoc; await render(); }
+    else if (a === 'clear-loc') { setLoc(null); await render(); }
   } catch (err) { toast(err.message); }
 });
 
@@ -569,6 +695,7 @@ document.addEventListener('submit', async (ev) => {
     return;
   }
   applyLang(savedLang());
+  state.nearby.loc = savedLoc();
   try { state.health = await api('/api/health'); } catch (_) { state.health = null; }
   renderBanner();
   await render();

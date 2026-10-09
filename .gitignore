@@ -2,3 +2,5 @@
 state/
 __pycache__/
 *.pyc
+# The downloaded offline street map and the facilities found in it (python3 -m ptp.offline_map download)
+data/map/

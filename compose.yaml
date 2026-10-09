@@ -1,7 +1,7 @@
 # The whole offline stack: the PTP app and a local language model (Ollama). Nothing leaves the machine.
 #
 #   docker compose up -d --build     # first time WITH internet: builds, then downloads both AI models
-#   docker compose logs -f ollama-pull whisper-download   # watch the downloads (a few GB, once)
+#   docker compose logs -f ollama-pull whisper-download map-download   # watch the downloads (a few GB, once)
 #   open http://localhost:8765       # after that it all works with Wi-Fi off
 #
 # Settings (put them in a .env file next to this one, or before the command):
@@ -9,6 +9,8 @@
 #   PTP_WHISPER_MODEL=base     speech model size: tiny, base, small (default), medium
 #   PTP_BIND=0.0.0.0           let phones on the same Wi-Fi or hotspot open http://<laptop-ip>:8765
 #   PTP_MOCK=1                 rule-based stand-in instead of AI, for testing only (the UI says so)
+#   PTP_MAP_LAT=14.85 PTP_MAP_LON=120.81   centre of the offline street map (downloaded once while online;
+#                              PTP_MAP_REFRESH=1 downloads it again, e.g. after changing the centre)
 #   PTP_LLM_URL=http://host.docker.internal:11434/v1   use Ollama installed on the laptop instead
 services:
   app:
@@ -85,6 +87,26 @@ services:
       - app
     restart: "no"
 
+  map-download:
+    image: ptp:latest
+    pull_policy: never  # built by the app service
+    environment:
+      PTP_MAP_LAT: ${PTP_MAP_LAT:-}
+      PTP_MAP_LON: ${PTP_MAP_LON:-}
+      PTP_MAP_KM: ${PTP_MAP_KM:-8}
+      PTP_MAP_REFRESH: ${PTP_MAP_REFRESH:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if [ -f "$$PTP_MAP" ] && [ -z "$$PTP_MAP_REFRESH" ]; then echo "Offline street map already downloaded."; exit 0; fi
+        python -m ptp.offline_map download $${PTP_MAP_LAT:+--lat $$PTP_MAP_LAT} $${PTP_MAP_LON:+--lon $$PTP_MAP_LON} --km "$$PTP_MAP_KM" \
+          || echo "Could not download the street map now (offline?). Nearby shows a simple drawing until it is."
+    volumes:
+      - ptp-data:/data
+    depends_on:
+      - app
+    restart: "no"
+
 volumes:
-  ptp-data:       # profile, tasks, recordings, speech model
+  ptp-data:       # profile, tasks, recordings, speech model, street map
   ollama-models:  # language models

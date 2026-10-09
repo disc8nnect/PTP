@@ -150,6 +150,18 @@ def _():
     assert d and d == sorted(d), d
 
 
+@step("Nearby: offline street map is downloaded and its tiles are served")
+def _():
+    m = app.map
+    assert m, "not downloaded: Nearby shows a simple drawing. While online run  python3 -m ptp.offline_map download --lat <lat> --lon <lon>"
+    from ptp import offline_map
+    lon, lat = m.info["center"][:2]
+    assert m.tile(14, *offline_map.lonlat_to_tile(lon, lat, 14)), "the map has no tile at its own centre"
+    data = app.facility_data
+    where = "OpenStreetMap" if data.get("source") == "openstreetmap" else ("FICTIONAL sample list" if data.get("sample") else "your list")
+    return f"downloaded {m.info['retrieved']}; {len(data['facilities'])} facilities from {where}"
+
+
 @step("Web server starts, serves the app and /api/health over localhost")
 def _():
     httpd = server.serve(app, "127.0.0.1", 0)

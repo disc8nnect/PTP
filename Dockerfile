@@ -12,6 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PTP_HOST=0.0.0.0 \
     PTP_PORT=8765 \
     PTP_STATE_DIR=/data/state \
+    PTP_MAP=/data/map/area.mbtiles \
     HF_HOME=/data/models \
     HF_HUB_OFFLINE=1
 
@@ -22,11 +23,11 @@ COPY data ./data
 COPY tests ./tests
 COPY demo_check.py compare_models.py requirements.txt ./
 
-# Profile, tasks, recordings (/data/state) and the downloaded speech model (/data/models) live in
-# /data, so they survive rebuilds when it is a volume. Runs as a normal user, not root.
+# Profile, tasks, recordings (/data/state), the downloaded speech model (/data/models) and the
+# offline street map (/data/map) live in /data, so they survive rebuilds when it is a volume. Runs as a normal user, not root.
 # HF_HUB_OFFLINE=1: the speech model is only ever loaded from /data/models, never fetched while
 # recording; compose.yaml's whisper-download service turns it off once to download the model.
-RUN useradd --create-home --uid 1000 ptp && mkdir -p /data/state /data/models && chown -R ptp /data
+RUN useradd --create-home --uid 1000 ptp && mkdir -p /data/state /data/models /data/map && chown -R ptp /data
 USER ptp
 
 EXPOSE 8765
