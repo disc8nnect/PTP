@@ -10,6 +10,7 @@ shows a banner whenever it is active. Turn it on with PTP_MOCK=1.
 Environment:
   PTP_LLM_URL    default http://127.0.0.1:11434/v1
   PTP_LLM_MODEL  default gemma3:4b     (chosen by testing; see README, "Choosing the model")
+  PTP_LLM_KEEP_ALIVE  default 8h       how long Ollama keeps the model loaded after PTP starts
 """
 from __future__ import annotations
 
@@ -39,6 +40,21 @@ class OllamaLLM:
         self.base_url = (base_url or os.environ.get("PTP_LLM_URL") or "http://127.0.0.1:11434/v1").rstrip("/")
         self.model = model or os.environ.get("PTP_LLM_MODEL") or "gemma3:4b"
         self.timeout = timeout
+
+    def warm_up(self) -> bool:
+        """Load the model now and keep it loaded (Ollama only), so the first question in a demo
+        does not wait for it. Ollama otherwise unloads a model after 5 idle minutes, and its
+        OpenAI-style API ignores keep_alive; a keep_alive set here is not reset by later requests.
+        Other OpenAI-compatible servers do not have this endpoint; that is fine."""
+        body = {"model": self.model, "keep_alive": os.environ.get("PTP_LLM_KEEP_ALIVE", "8h")}
+        req = urllib.request.Request(re.sub(r"/v1$", "", self.base_url) + "/api/generate",
+                                     data=json.dumps(body).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with _OPENER.open(req, timeout=self.timeout) as resp:
+                return resp.status == 200
+        except (urllib.error.URLError, OSError, ValueError):
+            return False
 
     def available(self) -> bool:
         try:

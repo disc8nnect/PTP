@@ -6,7 +6,7 @@ Built for the AppBuildersPH Hackathon 2026 (theme: Local AI). Everything runs on
 |---|---|
 | **Tala ng Konsulta** (from **Record a visit** on Home) | Record (with consent) or paste a doctor/midwife visit. A local speech model writes the transcript; a local language model proposes a summary and tasks. **Code checks the AI**: a task is kept only if its quote appears in the transcript and is not a question; dates ("susunod na Huwebes, alas nuwebe") are worked out by code, not guessed by the model; a return visit with a clear date that the model missed is added by code (and labelled so); the summary is hidden if it uses words, numbers or negations the transcript does not. You tick what to keep. |
 | **Kalendaryo** | Month view, due date, trimester bar, upcoming tasks. Due date = LMP + 280 days (an estimate, shown as one). |
-| **Tanong (Ask)** | Answers only from guides stored on the device, with a citation. **Code checks every sentence** of the model's answer against the guide passage it cites (words, numbers, negations, language) and drops the rest; if nothing survives, the app quotes the guide itself. Medicine and "is this normal?" questions get a fixed refusal; danger-sign words go to Emergency. If no guide covers it, it says so and offers a button to save the question for the midwife. |
+| **Tanong (Ask)** | Answers only from the pregnancy guide stored on the device (about 50 topics in Tagalog and English: check-ups, food and drink, common discomforts, exercise and sleep, baby's movements, danger signs, labour, after birth), with a citation. **Code checks every sentence** of the model's answer against the guide passage it cites (words, numbers, negations, language) and drops the rest; if nothing survives, the app quotes the guide itself. Medicine and "is this normal?" questions get a fixed refusal; danger-sign words go to Emergency. If no guide covers it, it says so and offers a button to save the question for the midwife. |
 | **Malapit** | Facilities sorted by distance, with a schematic offline map. |
 | **Emergency** (red button in the middle of the tab bar) | `tel:911`, nearest facility, danger-sign list. |
 | **Buod para sa midwife** | One printable page: week, due date, confirmed tasks, saved questions. This replaces online consultation. |
@@ -23,7 +23,7 @@ The app itself needs only Python 3.10+ (standard library). Recording visits also
 
 ```
 python3 -m ptp.server          # open http://127.0.0.1:8765
-python3 -m unittest discover -s tests -t .      # 65 tests
+python3 -m unittest discover -s tests -t .      # 76 tests
 python3 demo_check.py              # real local model, Wi-Fi OFF  <- run this before the demo
 python3 demo_check.py --mock       # app code only; NOT AI
 ```
@@ -83,19 +83,20 @@ Open http://localhost:8765. After that first run everything works with Wi-Fi off
 
 ## Environment variables
 
-`PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_WHISPER_MODEL`, `PTP_WHISPER_DEVICE` (`cpu` default, or `cuda`), `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.
+`PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_LLM_KEEP_ALIVE` (how long Ollama keeps the model loaded after PTP starts; default `8h`, so the first answer in a demo is not slow), `PTP_WHISPER_MODEL`, `PTP_WHISPER_DEVICE` (`cpu` default, or `cuda`), `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.
 
 ## What you must replace before this is real
 
-- `data/guides/*.md` — the bundled guide is a **sample**, not official guidance (front matter says `sample: true`; the UI labels citations from it). Add real, licensed guides (e.g. DOH material) with `source`, `publisher`, `retrieved`, `license` in the front matter, and delete the `sample` line. Check each license first.
+- `data/guides/pregnancy_guide.md` — our own summary of WHO and NHS advice (sources per topic in `data/GUIDE_SOURCES.md`), **not reviewed by a health worker** (front matter says `sample: true`; the UI labels every answer from it). A doctor or midwife must review it, including the Tagalog; add Philippine DOH material where it differs. Real guides go in `data/guides/` with `source`, `publisher`, `retrieved`, `license` in the front matter; delete the `sample` line only after review. Check each license first.
+  Format: one paragraph per topic under `##` headings, Tagalog then English, and a hidden `<!-- keywords: ... -->` line listing the everyday words people use for that topic (both languages), so search finds it. `tests/test_guides.py` checks the format and that 20 everyday questions find the right paragraph.
 - `data/red_flags.json` — an **unreviewed placeholder** (`"reviewed": false`; Emergency shows a warning). A doctor or midwife must review it, then set `reviewed` to `true`. A test fails if you flip it without thinking, on purpose.
 - `data/facilities.json` — three **fictional** facilities. Replace with a real list and its source.
 
 ## Known weak spots
 
-- **Retrieval is keyword search (BM25)**, not meaning. A question using different words than the guide misses it (fails safe: "not found"). An off-topic question that shares a keyword reaches the model, which answered `NOT_FOUND` in our tests ("Can I eat sushi?").
+- **Retrieval is keyword search (BM25)**, not meaning. Each guide paragraph carries a hidden list of everyday words for its topic ("manas", "kape", "kick") to help, but a question using none of them misses it (fails safe: "not found"). A question that shares only a common word with the guide reaches the model, which answered `NOT_FOUND` in our tests ("Is papaya safe to eat?").
 - **The code checks are word-level**: they catch added words, numbers and negations, not every change of meaning. The visit summary is labelled as written by AI for that reason.
-- **The models are cautious**: Gemma 3 4B answers "not found" to "What fruit is good for me?" because the guide only says to eat a variety of fruit.
+- **The guide decides what Ask can answer.** In our last run with Gemma 3 4B, 27 of 30 test questions got an answer, 7 of them by quoting the guide (questions in `tests/test_guides.py`); the other three were a car-engine question, papaya (not in the guide), and "Ilang kilo ang dapat kong itaba?", which search finds now. topics the guide does not cover ("Is papaya safe to eat?") get "not found" and the button to save the question. Add a paragraph to cover a new topic. When most of the model's sentences fail the check, Ask shows the guide's own paragraph instead, because what is left can be half an answer.
 - **Microphone**: browsers allow it only on `localhost` or HTTPS. Use the laptop's own browser. Opening the app from a phone over a hotspot (`PTP_HOST=0.0.0.0`) works for everything except recording.
 - The map is a schematic drawing of distances, not street tiles.
 - State is one JSON file; no encryption. Recordings stay in `state/recordings/`. Delete them if the consultation was real.

@@ -1,0 +1,33 @@
+# Sources for data/guides/pregnancy_guide.md
+
+The PTP team wrote the guide in its own words, in Tagalog and English, from the public guidance below. It is **not official guidance and has not been reviewed by a doctor or midwife yet**: the app labels every answer from it that way. Before real use, a health worker should review it, and Philippine Department of Health material should be added or used instead.
+
+Spelling is American (anemia, labor), as in Philippine English and in what the language model writes, so the answer check matches its words.
+
+How it was checked (9 October 2026): the official pages could not be opened from our build machine, so each fact was checked through web search results from the pages below and from health services quoting them. Medicine doses are left out on purpose: the app never advises on medicines, and supplements are described only as "take what your health worker gives you".
+
+| Guide topic | Source |
+|---|---|
+| At least 8 check-ups (contacts), at 12, 20, 26, 30, 34, 36, 38, 40 weeks; ultrasound before 24 weeks; iron and folic acid daily; tetanus vaccine; HIV, syphilis and hepatitis B screening | WHO, *Recommendations on antenatal care for a positive pregnancy experience* (2016): https://www.who.int/news-room/detail/07-11-2016-pregnant-women-must-be-able-to-access-the-right-care-at-the-right-time-says-who ; WHO MNCAH programme manager's handbook: https://www.who.int/teams/maternal-newborn-child-adolescent-health-and-ageing/handbooks/programme-manager-s-handbook-mncah/recommendations-on-interventions-along-life-course/maternal |
+| Foods to avoid, and the one-paragraph list of them (raw and undercooked meat, eggs and shellfish; liver; unpasteurised milk and soft cheese; shark, marlin, swordfish; tuna and oily fish limits); food hygiene; cats | NHS, *Foods to avoid in pregnancy*: https://www.nhs.uk/pregnancy/keeping-well/foods-to-avoid/ ; nidirect (Northern Ireland): https://www.nidirect.gov.uk/articles/foods-avoid-pregnancy ; HSE Ireland toxoplasmosis leaflet: https://www.hse.ie/eng/services/list/5/publichealth/publichealthdepts/pub/toxo-leaflet.pdf |
+| Weight gain (depends on weight before pregnancy; do not diet; no need to eat for two; about 200 extra kcal a day only in the last 3 months) | NICE guideline NG247 on maternal and child nutrition, as summarised by SACN: https://www.gov.uk/government/publications/nutrition-and-maternal-weight-outcomes-sacn-report/nutrition-and-maternal-weight-outcomes-sacn-report-summary . No target in kilograms is given on purpose: it depends on the mother's weight before pregnancy |
+| Raw fish (kinilaw, sushi, sashimi) safe only if frozen first | NHS foods-to-avoid guidance, as quoted in NHS-based leaflets, e.g. 111 Wales: https://111.wales.nhs.uk/LiveWell/Pregnancy/FoodsToAvoid ; Hartlepool Borough Council, *Diet and health for pregnancy*: https://www.hartlepool.gov.uk/download/downloads/id/4895/diet_and_health_for_pregnancy.pdf . NHS says farmed fish need not be frozen; the guide keeps the simpler, stricter rule |
+| Caffeine below 200 mg a day (about two cups of instant coffee) | NHS guidance as reported by Tommy's: https://www.tommys.org/pregnancy-information/calculators-tools-resources/check-your-caffeine-intake-pregnancy |
+| Iron-rich foods, vitamin C, tea and coffee with meals | Hull University Teaching Hospitals NHS, *Anaemia in pregnancy*: https://hey.nhs.uk/patient-leaflet/anaemia-in-pregnancy-2 |
+| Alcohol (no known safe amount); smoking | NHS and UK Chief Medical Officers, via Tommy's: https://www.tommys.org/pregnancy-information/im-pregnant/alcohol-in-pregnancy/drinking-alcohol-pregnancy ; NHS England: https://www.england.nhs.uk/2022/07/nhs-helps-thousands-of-pregnant-smokers-kick-the-habit/ |
+| Nausea and vomiting; ginger; when vomiting is urgent | NHS: https://www.nhs.uk/pregnancy/related-conditions/common-symptoms/vomiting-and-morning-sickness/ ; WHO antenatal care recommendations (ginger) |
+| Heartburn, constipation, back pain, swollen feet, sudden swelling of face or hands, tiredness, bleeding gums, painful peeing | NHS common symptoms pages: https://www.nhs.uk/pregnancy/related-conditions/common-symptoms/ ; Tommy's, painful urination: https://www.tommys.org/pregnancy-information/pregnancy-symptom-checker/painful-urination-pregnancy |
+| Leg cramps | WHO antenatal care recommendations (magnesium, calcium or non-drug options; the guide only says to tell the health worker) |
+| At least 150 minutes of moderate activity a week | WHO guidelines on physical activity and sedentary behaviour (2020) |
+| Exercise to avoid; lying flat after 16 weeks | NHS, *Exercise in pregnancy*: https://www.nhs.uk/pregnancy/keeping-well/exercise/ |
+| Go to sleep on your side from 28 weeks | NHS Saving Babies' Lives care bundle, as reported by the Royal College of Midwives: https://pre.rcm.org.uk/media-releases/2019/april/midwives-comment-on-maternal-sleeping-position |
+| Sex in pregnancy | NHS: https://www.nhs.uk/pregnancy/keeping-well/sex/ |
+| Feeling low or anxious; NCMH crisis hotline 1553 (free, 24 hours) | NHS perinatal mental health pages, e.g. https://www.healthiertogether.nhs.uk/new-parent-and-baby/anxiety-in-the-perinatal-period ; Daily Tribune, January 2026: https://tribune.net.ph/2026/01/03/doh-mental-health-hotline-gets-nearly-1k-calls-during-holiday-season |
+| Baby's movements | NHS maternity units, e.g. https://www.nth.nhs.uk/services/maternity/your-pregnancy/reduced-movement/ |
+| Danger signs | WHO-linked training module on NCBI: https://www.ncbi.nlm.nih.gov/books/NBK304178/ |
+| Signs of labour, when to go in, waters breaking | NHS: https://www.nhs.uk/pregnancy/labour-and-birth/signs-of-labour/signs-that-labour-has-begun/ |
+| Birth plan | WHO recommendation on birth preparedness and complication readiness; plan at least a month before the due date: https://www.measureevaluation.org/rbf/indicator-collections/service-quality-indicators/percentage-of-pregnant-women-who-have-a-preparedness-plan-for-birth-and-complications |
+| Giving birth in a health facility | WHO Philippines, *Safe Motherhood Week*: https://www.who.int/philippines/news/feature-stories/detail/safe-motherhood-week |
+| Check-ups after birth (24 hours in the facility, 2-3 days, 7-14 days, 6 weeks) | WHO postnatal care recommendations (2022): https://www.who.int/news/item/30-03-2022-who-urges-quality-care-for-women-and-newborns-in-critical-first-weeks-after-childbirth |
+| Breastfeeding (within the first hour; only breast milk for 6 months; up to 2 years or beyond) | WHO and UNICEF, *Capture the moment*: https://data.unicef.org/resources/capture-the-moment/ |
+| Due date = first day of last period + 280 days | Standard obstetric estimate (Naegele's rule), as used by the app's calendar |

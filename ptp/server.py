@@ -14,6 +14,7 @@ import mimetypes
 import os
 import re
 import sys
+import threading
 import time
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -371,7 +372,10 @@ def main() -> None:
     if not h["red_flags_reviewed"]:
         print("  Warning: the red-flag list is an unreviewed placeholder.")
     if h["guides_are_sample"]:
-        print("  Warning: the guides are SAMPLE text, not official guidance.")
+        print("  Note: the guides are not yet reviewed by a health worker.")
+    if h["llm_ready"] and hasattr(app.llm, "warm_up"):
+        print("  Loading the AI model in the background, so the first question is fast.")
+        threading.Thread(target=app.llm.warm_up, daemon=True).start()
     try:
         serve(app, host, port).serve_forever()
     except KeyboardInterrupt:

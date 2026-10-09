@@ -4,8 +4,8 @@ Flow:  safety rules first (no model)  ->  keyword retrieval (BM25, no model, no 
        ->  local language model writes a short answer from the excerpts, or says NOT_FOUND
        ->  code checks the answer cites a real excerpt; otherwise "not found"
        ->  code keeps only the sentences that cite an excerpt and say what it says, in the
-           question's language, and drops repeats; if none is left, the excerpt's own sentences
-           are shown instead ("from_guide").
+           question's language, and drops repeats; if fewer than half are left, the excerpt's own
+           sentences are shown instead ("from_guide").
 Small local models add facts of their own (foods, numbers of days) even when told not to, so
 nothing they write reaches the user unless the guide supports it.
 
@@ -13,6 +13,10 @@ Retrieval is plain keyword search on purpose: it needs no embedding model, runs 
 is easy to test. Its weakness is vocabulary: a question in Filipino only finds a guide that
 uses the same words, which is why the sample guide is bilingual. An embedding model is the
 upgrade path.
+
+A paragraph can end with a hidden line of extra search words, for the other ways people ask
+(Tagalog roots and forms, Taglish, common words): they are searched but never shown.
+    <!-- keywords: manas namamanas swelling swollen -->
 
 Guide files (data/guides/*.md) start with a front-matter block:
     ---
@@ -48,11 +52,18 @@ a an the of to in on at for and or is are was be it this that with as by from i 
 do does can could should would will what which who how when where why not no yes
 ang ng sa mga na at o ay ko mo ako ka siya kami tayo ba po opo hindi oo may mayroon para kung
 anong ano paano bakit kailan saan sino akin ating namin natin dapat puwede pwede ito iyon yan yun kong
+akong ikaw lang lamang din rin naman pa lagi palagi gagawin gawin ginagawa sana nga kasi si ni kay sila ngayon
 """.split())
+# Every question in this app is about pregnancy, so these words do not help find the right paragraph.
+STOPWORDS |= {"while", "during", "pregnant", "pregnancy", "buntis", "habang", "nagbubuntis", "pagbubuntis"}
+# Words that frame a question ("how long", "is it safe", "can we have") rather than name its topic.
+STOPWORDS |= {"long", "much", "many", "often", "safe", "ligtas", "okay", "ok", "have", "has", "had",
+              "there", "any", "some", "about", "really", "want", "know", "ilang", "gaano"}
 
 LANG_MARKERS = set("""
 ang ng sa mga ako ba po ko mo anong ano paano bakit kailan saan puwede pwede dapat akin namin natin
 kumain gamot uminom may nang kayo ninyo
+huwag wag hindi ikaw habang buntis kung lang rin sila siya tayo kami ito nito niya oo opo
 """.split())
 
 TEXT = {
@@ -102,6 +113,9 @@ def language_of(text: str) -> str:
 # ----------------------------------------------------------------------------- guides
 
 
+_KEYWORDS = re.compile(r"<!--\s*keywords:(.*?)-->", re.IGNORECASE | re.DOTALL)
+
+
 def _parse_front_matter(raw: str) -> tuple[dict, str]:
     meta: dict = {}
     body = raw
@@ -132,12 +146,17 @@ def load_guides(folder: Path | None = None) -> list[dict]:
                 block = "\n".join(block.splitlines()[1:]).strip()
                 if not block:
                     continue
+            keywords = " ".join(m.strip() for m in _KEYWORDS.findall(block))
+            block = " ".join(_KEYWORDS.sub(" ", block).split())
+            if not block:
+                continue
             chunks.append({
                 "id": len(chunks) + 1,
                 "doc": path.stem,
                 "title": meta.get("title", path.stem),
                 "heading": heading,
                 "text": block,
+                "keywords": keywords,
                 "source": meta.get("source", ""),
                 "publisher": meta.get("publisher", ""),
                 "sample": meta.get("sample", "").lower() == "true",
@@ -150,7 +169,7 @@ def retrieve(question: str, chunks: list[dict], k: int = TOP_K) -> list[dict]:
     q = set(tokens(question))
     if not q or not chunks:
         return []
-    docs = [tokens(c["heading"] + " " + c["text"]) for c in chunks]
+    docs = [tokens(" ".join((c["heading"], c.get("keywords", ""), c["text"]))) for c in chunks]
     n = len(docs)
     avg = sum(len(d) for d in docs) / n or 1.0
     df = {t: sum(1 for d in docs if t in d) for t in q}
@@ -207,18 +226,41 @@ def _cited_sentences(reply: str) -> list[str]:
     return out
 
 
+# A short "No," or "Hindi," answers the question rather than quoting the guide, so the check cannot
+# confirm it; the rest of the sentence can still be shown ("No, avoid liver" becomes "Avoid liver").
+_ANSWER_WORD = re.compile(r"^(?:yes|no|oo|opo|hindi)(?:\s+po)?\s*[,.!]\s*", re.IGNORECASE)
+# A sentence starting like this points back at the sentence before it ("It ...", "However, ...").
+_POINTS_BACK = re.compile(r"^(?:it|they|this|that|these|those|however|but|also|so|ito|iyan|iyon|sila|"
+                         r"pero|ngunit|subalit|gayunpaman|kaya)\b", re.IGNORECASE)
+
+
+def _checked(sentence: str, hits: list[dict], lang: str) -> str | None:
+    """The sentence (without a leading yes/no if only that is unsupported), or None if it fails."""
+    cited = {int(n) for n in re.findall(r"\[(\d+)\]", sentence)}
+    if not cited or not all(1 <= n <= len(hits) for n in cited):
+        return None
+    sources = [hits[n - 1]["text"] for n in cited]
+    if is_supported(sentence, sources, lang):
+        return sentence
+    bare = _ANSWER_WORD.sub("", sentence, count=1)
+    if bare != sentence and is_supported(bare, sources, lang):
+        return bare[:1].upper() + bare[1:]
+    return None
+
+
 def supported_sentences(reply: str, hits: list[dict], lang: str) -> list[str]:
     """The reply's sentences that cite a real excerpt and add nothing to it, without repeats."""
     kept: list[str] = []
+    after_dropped = False
     for sentence in _cited_sentences(reply):
-        cited = {int(n) for n in re.findall(r"\[(\d+)\]", sentence)}
-        if not cited or not all(1 <= n <= len(hits) for n in cited):
-            continue
-        if not is_supported(sentence, [hits[n - 1]["text"] for n in cited], lang):
-            continue
-        if any(_overlap(sentence, earlier) >= 0.6 for earlier in kept):
+        sentence = _checked(sentence, hits, lang)
+        if sentence and after_dropped and _POINTS_BACK.match(sentence):
+            sentence = None  # "It ..." would point at the sentence just dropped
+        if sentence and any(_overlap(sentence, earlier) >= 0.6 for earlier in kept):
             continue  # says again what an earlier sentence said
-        kept.append(sentence)
+        after_dropped = sentence is None
+        if sentence:
+            kept.append(sentence)
     return kept
 
 
@@ -264,8 +306,10 @@ def answer(question: str, chunks: list[dict], llm, flags: dict | None = None) ->
         return _result("not_found", lang, add_to_questions=True)
 
     kept = supported_sentences(reply, hits, lang)
-    from_guide = not kept
-    if from_guide:  # nothing the model wrote is backed by the guide: show the guide itself instead
+    # Little of what the model wrote is backed by the guide: what is left may be only part of the
+    # answer ("avoid raw meat" without the liver and soft cheese), so show the guide itself instead.
+    from_guide = len(kept) * 2 < len(_cited_sentences(reply))
+    if from_guide:
         cited = [cited[0]]
         reply = f"{guide_sentences(hits[cited[0] - 1], lang)} [{cited[0]}]"
     else:

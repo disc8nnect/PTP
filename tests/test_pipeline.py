@@ -13,6 +13,8 @@ from ptp.store import Store
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 TRANSCRIPT = (DATA / "sample_transcript.txt").read_text(encoding="utf-8")
+# A small fixed guide, so these tests do not change when the shipped guides grow.
+FIXTURE_GUIDES = Path(__file__).resolve().parent / "fixtures" / "guides"
 VISIT = date(2026, 10, 8)  # a Thursday
 
 
@@ -112,7 +114,7 @@ class VisitNotes(unittest.TestCase):
 
 
 class Ask(unittest.TestCase):
-    chunks = rag.load_guides()
+    chunks = rag.load_guides(FIXTURE_GUIDES)
 
     def ask(self, q, llm=None):
         return rag.answer(q, self.chunks, llm or MockLLM())
@@ -168,11 +170,35 @@ class Ask(unittest.TestCase):
         self.assertNotIn("Hindi", r["answer"])
 
     def test_supported_sentences_are_kept_and_the_rest_dropped(self):
-        reply = ("Kumain ng iba't ibang prutas araw-araw [1]. Kumain ng iba't ibang prutas araw-araw [1]. "
-                 "Kumain ng aprikot at papaya [1].")
+        reply = "Kumain ng iba't ibang prutas araw-araw [1]. Kumain ng aprikot at papaya [1]."
         r = self.ask("Anong prutas ang maganda?", ScriptedLLM(reply))
         self.assertFalse(r["from_guide"])
         self.assertEqual(r["answer"], "Kumain ng iba't ibang prutas araw-araw [1].")
+
+    def test_mostly_unsupported_answer_is_replaced_by_the_guide(self):
+        # Seen with Gemma 3 4B on "What foods should I avoid?": only "avoid raw meat" passed the
+        # check, which on its own leaves out the liver and soft cheese. The guide says it all.
+        reply = ("Kumain ng iba't ibang prutas araw-araw [1]. Kumain ng iba't ibang prutas araw-araw [1]. "
+                 "Kumain ng aprikot at papaya [1].")
+        hits = rag.retrieve("Anong prutas ang maganda?", self.chunks)
+        self.assertEqual(rag.supported_sentences(reply, hits, "tl"), ["Kumain ng iba't ibang prutas araw-araw [1]."])
+        r = self.ask("Anong prutas ang maganda?", ScriptedLLM(reply))
+        self.assertTrue(r["from_guide"])
+        self.assertIn("Kumain ng iba't ibang prutas at gulay araw-araw", r["answer"])
+
+    LIVER = [{"text": "Avoid liver and liver products, because they contain too much vitamin A for the baby."}]
+
+    def test_a_leading_no_is_left_out_and_the_rest_kept(self):
+        # Seen with Gemma 3 4B on "Can I eat liver?": the guide says "avoid", never "no".
+        reply = "No, you should avoid liver and liver products [1]. They contain too much vitamin A for the baby [1]."
+        self.assertEqual(rag.supported_sentences(reply, self.LIVER, "en"),
+                         ["You should avoid liver and liver products [1].",
+                          "They contain too much vitamin A for the baby [1]."])
+        self.assertEqual(rag.supported_sentences("Yes, eat liver every day [1].", self.LIVER, "en"), [])
+
+    def test_a_sentence_pointing_back_at_a_dropped_one_is_dropped_too(self):
+        reply = "No, liver is safe to eat [1]. It contains too much vitamin A for the baby [1]."
+        self.assertEqual(rag.supported_sentences(reply, self.LIVER, "en"), [])
 
     def test_faithful_answer_is_kept(self):
         reply = "Eat a variety of fruits and vegetables every day [1]."

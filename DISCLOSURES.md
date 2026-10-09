@@ -10,7 +10,7 @@
 - Ask uses BM25 keyword search written for PTP; there is no embedding model.
 - The app itself uses only the Python standard library and vanilla JS. No CDN, fonts or web calls. Docker images used by the optional Docker setup: `python:3.13.15-slim-bookworm`, `ollama/ollama:0.34.4`.
 
-**Data.** `data/guides/sample_guide.md` is generic sample text written for testing, not official guidance. `data/facilities.json` is fictional. `data/sample_transcript.txt` is a fictional, staged conversation. `data/red_flags.json` is an unreviewed placeholder. None of these are medical sources.
+**Data.** `data/guides/pregnancy_guide.md` (the text Ask answers from) is the team's own summary, in Tagalog and English, of public WHO and NHS pregnancy advice, plus the Philippine NCMH hotline. It was written with Claude, the facts were checked against web search results from those sources (the official pages could not be opened from our build machine), and every topic is listed with its source in `data/GUIDE_SOURCES.md`. It is not official guidance and has **not** been reviewed by a doctor or midwife; the app says so under every answer. It gives no medicine doses. `tests/fixtures/guides/sample_guide.md` is short sample text used only by the tests. `data/facilities.json` is fictional. `data/sample_transcript.txt` is a fictional, staged conversation. `data/red_flags.json` is an unreviewed placeholder. None of these are medical sources.
 
 **Mock mode.** `PTP_MOCK=1` / `demo_check.py --mock` use a rule-based stand-in, not AI. It exists only for tests and is labelled in the UI.
 

@@ -119,6 +119,33 @@ class ServerTest(unittest.TestCase):
 
 
 
+class WarmUp(unittest.TestCase):
+    """At start, PTP asks Ollama to load the model and keep it loaded, so the first question is fast."""
+
+    def test_warm_up_loads_and_keeps_the_model(self):
+        seen = []
+
+        class Ollama(BaseHTTPRequestHandler):
+            def do_POST(self):
+                seen.append((self.path, json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        fake = HTTPServer(("127.0.0.1", 0), Ollama)
+        threading.Thread(target=fake.serve_forever, daemon=True).start()
+        try:
+            llm = OllamaLLM(base_url=f"http://127.0.0.1:{fake.server_address[1]}/v1", model="gemma3:4b")
+            self.assertTrue(llm.warm_up())
+            self.assertEqual(seen, [("/api/generate", {"model": "gemma3:4b", "keep_alive": "8h"})])
+        finally:
+            fake.shutdown()
+            fake.server_close()
+        self.assertFalse(OllamaLLM(base_url="http://127.0.0.1:9/v1").warm_up())  # nothing there: no crash
+
+
 class ModelNotDownloaded(unittest.TestCase):
     """Ollama is running but the model was never pulled: the app must say that, not "can't connect"."""
 
