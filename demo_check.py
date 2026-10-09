@@ -2,10 +2,12 @@
 
     python3 demo_check.py            # uses your real local model (Ollama) - what the demo needs
     python3 demo_check.py --mock     # uses the rule-based stand-in (NOT AI); proves the app code only
+    docker compose exec app python demo_check.py     # the same check inside Docker
 
-It blocks every non-local network connection while it runs, so a PASS also shows nothing needed
-the internet. It prints PASS/FAIL per step and exits 1 if any step failed.
+It blocks every connection to the internet while it runs (only this machine and private networks,
+such as Docker's link to Ollama, are allowed), so a PASS also shows nothing needed the internet. It prints PASS/FAIL per step and exits 1 if any step failed.
 """
+import ipaddress
 import json
 import os
 import socket
@@ -21,13 +23,24 @@ if MOCK:
     os.environ["PTP_MOCK"] = "1"
 os.environ.setdefault("PTP_TODAY", "2026-10-09")
 
-# ---- block anything that is not this machine -------------------------------------------------
+# ---- block anything on the internet ----------------------------------------------------------
 _real_connect = socket.socket.connect
+
+
+def _is_local(host: str) -> bool:
+    """This machine, or a private network such as Docker's (where Ollama runs in compose)."""
+    if host == "localhost" or host.startswith("/"):
+        return True
+    try:
+        ip = ipaddress.ip_address(host.split("%")[0])
+    except ValueError:
+        return False  # a name that was not resolved to an address: refuse
+    return ip.is_loopback or ip.is_private
 
 
 def _local_only(self, address):
     host = address[0] if isinstance(address, tuple) else address
-    if isinstance(host, str) and host not in ("127.0.0.1", "::1", "localhost") and not host.startswith("/"):
+    if isinstance(host, str) and not _is_local(host):
         raise OSError(f"BLOCKED non-local connection to {host}")
     return _real_connect(self, address)
 

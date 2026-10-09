@@ -1,0 +1,87 @@
+# The whole offline stack: the PTP app and a local language model (Ollama). Nothing leaves the machine.
+#
+#   docker compose up -d --build     # first time WITH internet: builds, then downloads both AI models
+#   docker compose logs -f ollama-pull whisper-download   # watch the downloads (a few GB, once)
+#   open http://localhost:8765       # after that it all works with Wi-Fi off
+#
+# Settings (put them in a .env file next to this one, or before the command):
+#   PTP_LLM_MODEL=qwen2.5:3b   which language model to use (downloaded on the next start while online)
+#   PTP_WHISPER_MODEL=base     speech model size: tiny, base, small (default), medium
+#   PTP_BIND=0.0.0.0           let phones on the same Wi-Fi or hotspot open http://<laptop-ip>:8765
+#   PTP_MOCK=1                 rule-based stand-in instead of AI, for testing only (the UI says so)
+#   PTP_LLM_URL=http://host.docker.internal:11434/v1   use Ollama installed on the laptop instead
+services:
+  app:
+    build: .
+    image: ptp:latest
+    ports:
+      - "${PTP_BIND:-127.0.0.1}:8765:8765"
+    environment:
+      PTP_LLM_URL: ${PTP_LLM_URL:-http://ollama:11434/v1}
+      PTP_LLM_MODEL: ${PTP_LLM_MODEL:-llama3.2:3b}
+      PTP_MOCK: ${PTP_MOCK:-0}
+      PTP_WHISPER_MODEL: ${PTP_WHISPER_MODEL:-small}
+      PTP_STT_LANGUAGE: ${PTP_STT_LANGUAGE:-}
+      PTP_TODAY: ${PTP_TODAY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ptp-data:/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.34.4
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # One-off jobs on every start: download the models if online, otherwise keep what is there.
+  ollama-pull:
+    image: ollama/ollama:0.34.4
+    environment:
+      OLLAMA_HOST: ollama:11434
+      PTP_LLM_MODEL: ${PTP_LLM_MODEL:-llama3.2:3b}
+    entrypoint: ["sh", "-c", "ollama pull \"$$PTP_LLM_MODEL\" || echo \"Could not download $$PTP_LLM_MODEL now (offline?). Keeping the models already downloaded.\""]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  whisper-download:
+    image: ptp:latest
+    pull_policy: never  # built by the app service
+    environment:
+      HF_HUB_OFFLINE: "0"
+      PTP_WHISPER_MODEL: ${PTP_WHISPER_MODEL:-small}
+    command:
+      - python
+      - -c
+      - |
+        import os
+        try:
+            from faster_whisper import download_model
+        except ImportError:
+            print("This image was built without recording (STT=false): no speech model needed.")
+            raise SystemExit(0)
+        size = os.environ["PTP_WHISPER_MODEL"]
+        try:
+            download_model(size)
+            print("Speech model ready:", size)
+        except Exception as exc:
+            print(f"Could not download speech model {size} now (offline?): {type(exc).__name__}. Keeping what is already downloaded.")
+    volumes:
+      - ptp-data:/data
+    depends_on:
+      - app
+    restart: "no"
+
+volumes:
+  ptp-data:       # profile, tasks, recordings, speech model
+  ollama-models:  # language models

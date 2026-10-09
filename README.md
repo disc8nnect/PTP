@@ -48,6 +48,23 @@ py compare_models.py llama3.2:3b qwen2.5:3b gemma3:4b           # time + results
 
 Install Python 3.10+ from python.org (tick "Add to PATH"), Ollama for Windows, and `py -m pip install faster-whisper`. On a 16 GB laptop without a dedicated GPU, stick to models of about 4B parameters or smaller and the `small` or `base` Whisper model; larger ones will be slow. Speeds here are not measured: `compare_models.py` prints them on the real machine. Windows is untested on our side: the code uses no Windows-specific calls, but treat the first run as a test.
 
+## Run with Docker (Windows, Mac or Linux)
+
+Runs the app and the local AI model server (Ollama) together, so you don't install Python or Ollama. Needs Docker Desktop (Windows, Mac) or Docker Engine (Linux).
+
+```
+docker compose up -d --build                          # first time, WITH internet
+docker compose logs -f ollama-pull whisper-download   # wait until both models are downloaded (a few GB, once)
+```
+
+Open http://localhost:8765. After that first run everything works with Wi-Fi off: `docker compose up -d` starts it, `docker compose down` stops it, and profile, tasks, recordings and models stay in Docker volumes. If you forget the download, the app says "The AI model … is not downloaded yet" instead of answering.
+
+- **Another model:** put `PTP_LLM_MODEL=qwen2.5:3b` in a `.env` file next to `compose.yaml` and run `docker compose up -d` while online; it downloads on start. Same for `PTP_WHISPER_MODEL=base`.
+- **Phones on the same Wi-Fi or hotspot:** add `PTP_BIND=0.0.0.0` to `.env`, restart, and open `http://<laptop-ip>:8765` on the phone. By default only the laptop itself can open the app.
+- **Speed:** Ollama inside Docker runs on the CPU. If the laptop has a GPU, install Ollama normally and set `PTP_LLM_URL=http://host.docker.internal:11434/v1` to use it.
+- **Checks:** `docker compose exec app python demo_check.py` (offline check, as above) and `docker compose run --rm --no-deps app python -m unittest discover -s tests -t .`
+- **Smaller image without recording:** `docker build --build-arg STT=false -t ptp .` (paste transcripts instead).
+
 ## Environment variables
 
 `PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_WHISPER_MODEL`, `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.

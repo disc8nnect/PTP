@@ -1,0 +1,9 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+compose.yaml
+.env
+state/
+**/__pycache__
+**/*.pyc
