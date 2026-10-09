@@ -61,7 +61,7 @@ a { color: inherit; }
 input[type=text], input[type=date], textarea { width: 100%; border: 1px solid #c9d6d3; border-radius: 14px; background: #fff; padding: 12px 14px; font-size: 15px; }
 textarea { min-height: 140px; resize: vertical; line-height: 1.45; }
 label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
-.check { display: flex; align-items: flex-start; gap: 12px; }
+.check { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
 .check input { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--primary); flex-shrink: 0; }
 .empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
 .quote { font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.4; }
@@ -137,6 +137,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; 
 /* emergency */
 .em-head { background: var(--red); color: #fff; margin: -24px -20px 0; padding: 18px 20px 26px; border-radius: 0 0 28px 28px; display: flex; flex-direction: column; gap: 14px; }
 .em-head .back { align-self: flex-start; min-height: 44px; display: flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 700; font-size: 14px; }
+.em-head .back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .em-head h1 { font-size: 40px; line-height: 1; }
 .em-call { min-height: 60px; border-radius: 18px; background: #fff; color: var(--red-ink); display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 20px; font-weight: 700; text-decoration: none; }
 .sign { display: flex; align-items: center; gap: 10px; font-size: 14px; }
