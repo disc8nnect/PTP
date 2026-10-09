@@ -1,0 +1,62 @@
+{
+  "reviewed": false,
+  "review_note": "UNREVIEWED PLACEHOLDER. Replace the signs and phrases with the official list from DOH or WHO, record the source below, and have a midwife or doctor review it BEFORE any real use. A missing phrase means a missed warning, so keep the list generous.",
+  "source": "",
+  "signs": [
+    {
+      "en": "Vaginal bleeding",
+      "tl": "Pagdurugo sa ari",
+      "phrases": ["vaginal bleeding", "bleeding", "dumudugo", "pagdurugo", "dugo sa ari"]
+    },
+    {
+      "en": "Severe headache",
+      "tl": "Matinding sakit ng ulo",
+      "phrases": ["severe headache", "matinding sakit ng ulo", "masakit na masakit ang ulo"]
+    },
+    {
+      "en": "Blurred vision",
+      "tl": "Malabo ang paningin",
+      "phrases": ["blurred vision", "blurry vision", "malabo ang paningin", "malabo ang mata"]
+    },
+    {
+      "en": "Convulsions or fits",
+      "tl": "Kombulsyon o pangingisay",
+      "phrases": ["convulsion", "convulsions", "seizure", "fits", "kombulsyon", "pangingisay", "nanginginig at nawalan ng malay"]
+    },
+    {
+      "en": "Baby is not moving",
+      "tl": "Hindi gumagalaw ang sanggol",
+      "phrases": ["baby is not moving", "baby not moving", "no movement", "hindi gumagalaw", "hindi na gumagalaw", "walang galaw", "hindi ko maramdaman ang galaw"]
+    },
+    {
+      "en": "Water breaking or leaking fluid",
+      "tl": "Pumutok ang panubigan o tumutulo ang tubig",
+      "phrases": ["water broke", "water breaking", "leaking fluid", "pumutok ang panubigan", "tumutulo ang tubig", "nabasag ang panubigan"]
+    },
+    {
+      "en": "Severe abdominal pain",
+      "tl": "Matinding sakit ng tiyan",
+      "phrases": ["severe abdominal pain", "severe stomach pain", "matinding sakit ng tiyan"]
+    },
+    {
+      "en": "Difficulty breathing",
+      "tl": "Hirap huminga",
+      "phrases": ["difficulty breathing", "cant breathe", "can t breathe", "hirap huminga", "hindi makahinga"]
+    },
+    {
+      "en": "Chest pain",
+      "tl": "Sakit sa dibdib",
+      "phrases": ["chest pain", "sakit sa dibdib"]
+    },
+    {
+      "en": "High fever",
+      "tl": "Mataas na lagnat",
+      "phrases": ["high fever", "mataas na lagnat"]
+    },
+    {
+      "en": "Fainting",
+      "tl": "Nahimatay o nawalan ng malay",
+      "phrases": ["fainted", "fainting", "nahimatay", "nawalan ng malay"]
+    }
+  ]
+}

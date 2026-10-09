@@ -1,0 +1,4 @@
+# Local app data: profile, tasks and visit recordings (may hold real consultations)
+state/
+__pycache__/
+*.pyc

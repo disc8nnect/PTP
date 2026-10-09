@@ -1,0 +1,10 @@
+{
+  "sample": true,
+  "note": "FICTIONAL facilities for the demo. Replace with a verified list and record where it came from in DISCLOSURES.md.",
+  "default_location": {"name": "Barangay Maligaya (halimbawa)", "lat": 14.8500, "lon": 120.8100},
+  "facilities": [
+    {"id": "f1", "name": "Halimbawa Rural Health Unit", "kind": "rhu", "label": "Health center", "lat": 14.8590, "lon": 120.8105},
+    {"id": "f2", "name": "Maligaya Birthing Clinic", "kind": "midwife", "label": "Midwife clinic", "lat": 14.8640, "lon": 120.8270},
+    {"id": "f3", "name": "Halimbawa District Hospital", "kind": "hospital", "label": "Ospital", "lat": 14.8780, "lon": 120.8400}
+  ]
+}
