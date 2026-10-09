@@ -23,7 +23,7 @@ The app itself needs only Python 3.10+ (standard library). Recording visits also
 
 ```
 python3 -m ptp.server          # open http://127.0.0.1:8765
-python3 -m unittest discover -s tests -t .      # 76 tests
+python3 -m unittest discover -s tests -t .      # 87 tests
 python3 demo_check.py              # real local model, Wi-Fi OFF  <- run this before the demo
 python3 demo_check.py --mock       # app code only; NOT AI
 ```
