@@ -5,6 +5,10 @@ while online (see README, "Before you go offline").
 
 Environment:
   PTP_WHISPER_MODEL       faster-whisper model name or folder, default "small"
+  PTP_WHISPER_DEVICE      "cpu" (default) or "cuda" for an NVIDIA GPU. Only use "cuda" after installing
+                          NVIDIA cuBLAS and cuDNN for CUDA 12: without them faster-whisper can crash the
+                          whole app on the first recording instead of raising an error. On the CPU it
+                          uses 4 threads, so the laptop stays responsive.
   PTP_WHISPER_CLI         path to whisper.cpp "whisper-cli" (optional)
   PTP_WHISPER_MODEL_PATH  path to a ggml model file for whisper.cpp (needed with the CLI)
   PTP_STT_LANGUAGE        e.g. "tl" for Tagalog; default: let the model detect the language
@@ -53,9 +57,10 @@ def transcribe(audio_path: str | Path) -> str:
         from faster_whisper import WhisperModel
 
         size = os.environ.get("PTP_WHISPER_MODEL", "small")
-        if size not in _model_cache:
-            _model_cache[size] = WhisperModel(size, device="auto", compute_type="int8")
-        segments, _info = _model_cache[size].transcribe(str(audio_path), language=language, vad_filter=True)
+        device = os.environ.get("PTP_WHISPER_DEVICE", "cpu")
+        if (size, device) not in _model_cache:
+            _model_cache[size, device] = WhisperModel(size, device=device, compute_type="int8")
+        segments, _info = _model_cache[size, device].transcribe(str(audio_path), language=language, vad_filter=True)
         return " ".join(seg.text.strip() for seg in segments).strip()
     if which == "whisper.cpp":
         cli = os.environ.get("PTP_WHISPER_CLI") or shutil.which("whisper-cli")

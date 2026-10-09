@@ -23,7 +23,7 @@ Requires Python 3.10+ and nothing else (standard library only).
 
 ```
 python3 -m ptp.server          # open http://127.0.0.1:8765
-python3 -m unittest discover -s tests -t .      # 50 tests
+python3 -m unittest discover -s tests -t .      # 53 tests
 python3 demo_check.py              # real local model, Wi-Fi OFF  <- run this before the demo
 python3 demo_check.py --mock       # app code only; NOT AI
 ```
@@ -46,7 +46,9 @@ $env:PTP_LLM_MODEL = "qwen2.5:3b"; py -m ptp.server     # env vars last for this
 py compare_models.py llama3.2:3b qwen2.5:3b gemma3:4b           # time + results per model, on YOUR laptop
 ```
 
-Install Python 3.10+ from python.org (tick "Add to PATH"), Ollama for Windows, and `py -m pip install faster-whisper`. On a 16 GB laptop without a dedicated GPU, stick to models of about 4B parameters or smaller and the `small` or `base` Whisper model; larger ones will be slow. Speeds here are not measured: `compare_models.py` prints them on the real machine. Windows is untested on our side: the code uses no Windows-specific calls, but treat the first run as a test.
+Install Python 3.10+ from python.org (tick "Add to PATH"), Ollama for Windows, and `py -m pip install faster-whisper`. On a 16 GB laptop without a dedicated GPU, stick to models of about 4B parameters or smaller and the `small` or `base` Whisper model; larger ones will be slow.
+
+**Laptop with an NVIDIA GPU and 16 GB RAM (e.g. RTX 5050 8 GB, i5-13420H):** run it this way, not with Docker. Ollama for Windows puts the language model on the GPU's own memory, so it barely touches system RAM; Docker Desktop's Ollama can only use the CPU and adds a virtual machine on top. Keep to models of 3-4B (`llama3.2:3b`, `qwen2.5:3b`, `gemma3:4b`, about 2-3.5 GB of the GPU's 8 GB), keep the NVIDIA driver up to date, and close browser tabs and other apps before a demo if Task Manager shows memory above about 80%. Speech-to-text stays on the CPU (4 threads) by default; `PTP_WHISPER_DEVICE=cuda` moves it to the GPU, but only after installing NVIDIA cuBLAS and cuDNN for CUDA 12, because without them the app can crash on the first recording. Speeds here are not measured: `compare_models.py` prints them on the real machine. Windows is untested on our side: the code uses no Windows-specific calls, but treat the first run as a test.
 
 ## Run with Docker (Windows, Mac or Linux)
 
@@ -61,13 +63,13 @@ Open http://localhost:8765. After that first run everything works with Wi-Fi off
 
 - **Another model:** put `PTP_LLM_MODEL=qwen2.5:3b` in a `.env` file next to `compose.yaml` and run `docker compose up -d` while online; it downloads on start. Same for `PTP_WHISPER_MODEL=base`.
 - **Phones on the same Wi-Fi or hotspot:** add `PTP_BIND=0.0.0.0` to `.env`, restart, and open `http://<laptop-ip>:8765` on the phone. By default only the laptop itself can open the app.
-- **Speed:** Ollama inside Docker runs on the CPU. If the laptop has a GPU, install Ollama normally and set `PTP_LLM_URL=http://host.docker.internal:11434/v1` to use it.
+- **Speed and memory:** Ollama inside Docker runs on the CPU and uses system RAM. If the laptop has an NVIDIA GPU, install Ollama for Windows instead, set `PTP_LLM_URL=http://host.docker.internal:11434/v1` in `.env`, and start only the app: `docker compose up -d --no-deps app whisper-download`. On a 16 GB laptop, running without Docker (see Windows 11 above) is lighter still.
 - **Checks:** `docker compose exec app python demo_check.py` (offline check, as above) and `docker compose run --rm --no-deps app python -m unittest discover -s tests -t .`
 - **Smaller image without recording:** `docker build --build-arg STT=false -t ptp .` (paste transcripts instead).
 
 ## Environment variables
 
-`PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_WHISPER_MODEL`, `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.
+`PTP_MOCK`, `PTP_LLM_URL`, `PTP_LLM_MODEL`, `PTP_WHISPER_MODEL`, `PTP_WHISPER_DEVICE` (`cpu` default, or `cuda`), `PTP_WHISPER_CLI`, `PTP_WHISPER_MODEL_PATH`, `PTP_STT_LANGUAGE`, `PTP_STATE_DIR` (where profile, tasks and recordings are saved; default `./state`), `PTP_TODAY=YYYY-MM-DD` (pretend today is this date, for staging), `PTP_HOST` / `PTP_PORT` (default `127.0.0.1:8765`), `PTP_LOG=1`.
 
 ## What you must replace before this is real
 
