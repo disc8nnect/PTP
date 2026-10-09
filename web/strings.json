@@ -28,7 +28,7 @@
     "tab.menu": "Main menu",
     "tab.home": "Home",
     "tab.calendar": "Calendar",
-    "tab.notes": "Notes",
+    "tab.emergency": "Emergency",
     "tab.ask": "Ask",
     "tab.nearby": "Nearby",
 
@@ -60,7 +60,8 @@
     "home.noCheckup": "None yet. Record a visit to add one.",
     "home.todo": "To do",
     "home.summaryLink": "Summary for midwife",
-    "home.noTasks": "Nothing yet. Tap Notes to record a visit.",
+    "home.noTasks": "Nothing yet. Tap Record a visit below to add some.",
+    "home.record": "Record a visit",
     "home.markDone": "Mark done: {title}",
 
     "cal.title": "Calendar",
@@ -196,7 +197,7 @@
     "tab.menu": "Pangunahing menu",
     "tab.home": "Bahay",
     "tab.calendar": "Kalendaryo",
-    "tab.notes": "Tala",
+    "tab.emergency": "Emergency",
     "tab.ask": "Tanong",
     "tab.nearby": "Malapit",
 
@@ -227,7 +228,8 @@
     "home.noCheckup": "Wala pa. Mag-record ng konsulta para madagdag.",
     "home.todo": "Mga gagawin",
     "home.summaryLink": "Buod para sa midwife",
-    "home.noTasks": "Walang nakatala. Pindutin ang Tala para mag-record ng konsulta.",
+    "home.noTasks": "Wala pang nakatala. Pindutin ang Mag-record ng konsulta sa ibaba.",
+    "home.record": "Mag-record ng konsulta",
     "home.markDone": "Markahan: {title}",
 
     "cal.title": "Kalendaryo",

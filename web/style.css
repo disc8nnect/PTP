@@ -31,8 +31,9 @@ a { color: inherit; }
   color: var(--muted); font-size: 11px; font-weight: 600; min-height: 44px; }
 #tabs a.active { color: var(--primary); font-weight: 700; }
 #tabs svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-#tabs .fab { width: 54px; height: 54px; margin-top: -24px; border-radius: 27px; background: var(--primary); color: #fff; border: 4px solid #fff;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(23,117,110,.35); }
+#tabs .fab { width: 54px; height: 54px; margin-top: -24px; border-radius: 27px; background: var(--red); color: #fff; border: 4px solid #fff;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(179,38,30,.35); }
+#tabs a.center { color: var(--red-ink); font-weight: 700; }
 #tabs .fab svg { stroke: #fff; }
 
 /* shared */

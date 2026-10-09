@@ -137,7 +137,8 @@ async function render() {
   const view = routes[name] ? name : 'home';
   const tabs = $('#tabs');
   tabs.classList.toggle('hidden', view === 'emergency');
-  tabs.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.dataset.tab === view));
+  const tab = view === 'notes' ? 'home' : view; // Visit Notes is opened from the Record button on Home
+  tabs.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   const el = $('#view');
   el.classList.toggle('no-tabs', view === 'emergency');
   try {
@@ -197,7 +198,7 @@ async function viewHome(el) {
       <div class="row between"><h2 style="font-size:16px">${esc(t('home.todo'))}</h2><a href="#/summary" style="font-size:13px;font-weight:700;color:var(--primary);text-decoration:none">${esc(t('home.summaryLink'))}</a></div>
       ${tasks || `<div class="empty">${esc(t('home.noTasks'))}</div>`}
     </section>
-    <a class="btn red" href="#/emergency">${icon.alert} ${esc(t('common.emergency'))}</a>`;
+    <a class="btn" href="#/notes">${icon.mic} ${esc(t('home.record'))}</a>`;
 }
 
 // ------------------------------------------------------------------ calendar
