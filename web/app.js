@@ -7,7 +7,7 @@
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const KIND_COLORS = { rhu: '#2a5db0', midwife: '#8a4fb3', hospital: '#b3261e' };
+const KIND_COLORS = { rhu: '#2b6cb0', midwife: '#8a4fb3', hospital: '#b3261e' }; // blue, purple, red: told apart from the pink of the app
 const LANGS = { en: 'English', tl: 'Tagalog' }; // each name in its own language, so it is never translated
 const LANG_KEY = 'ptp.lang';
 const isLang = (l) => l === 'en' || l === 'tl';
@@ -213,7 +213,7 @@ async function viewCalendar(el) {
     return `<div class="cell ${cls}"><div class="num">${d.n}</div><div class="pip ${pip}"></div></div>`;
   }).join('');
   const p = c.profile;
-  const agenda = c.agenda.map((task) => `<div class="row"><span class="dot" style="background:${task.kind === 'appointment' ? '#c4472a' : 'var(--primary)'}"></span><span class="grow" style="font-size:14px">${esc(task.title)}</span><span class="muted" style="font-size:13px">${esc(fmtShort(task.date))}${task.time ? ' · ' + esc(fmtTime(task.time)) : ''}</span></div>`).join('');
+  const agenda = c.agenda.map((task) => `<div class="row"><span class="dot" style="background:${task.kind === 'appointment' ? 'var(--blue)' : 'var(--primary)'}"></span><span class="grow" style="font-size:14px">${esc(task.title)}</span><span class="muted" style="font-size:13px">${esc(fmtShort(task.date))}${task.time ? ' · ' + esc(fmtTime(task.time)) : ''}</span></div>`).join('');
   el.innerHTML = `
     <div class="row between"><h1 class="page-title">${esc(t('cal.title'))}</h1>${p ? `<span class="chip appt">${esc(t('cal.due', { date: fmtLong(p.due_date) }))}</span>` : ''}</div>
     <section class="card" style="padding:14px 12px 8px">
@@ -452,10 +452,10 @@ function mapSVG(loc, items) {
   const s = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY);
   const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
   const X = (x) => W / 2 + (x - cx) * s, Y = (y) => H / 2 - (y - cy) * s;
-  const pin = (x, y, color, label) => `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})"><path d="M0 0c-8-9-12-14-12-20a12 12 0 0 1 24 0c0 6-4 11-12 20z" fill="${color}"/><circle cx="0" cy="-20" r="4.5" fill="#fff"/><text x="0" y="14" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1b2b2a" stroke="#e6efea" stroke-width="3" paint-order="stroke">${esc(label)}</text></g>`;
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('nearby.mapLabel'))}"><rect width="${W}" height="${H}" fill="#e6efea"/>
+  const pin = (x, y, color, label) => `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})"><path d="M0 0c-8-9-12-14-12-20a12 12 0 0 1 24 0c0 6-4 11-12 20z" fill="${color}"/><circle cx="0" cy="-20" r="4.5" fill="#fff"/><text x="0" y="14" text-anchor="middle" font-size="10.5" font-weight="700" fill="#2a2140" stroke="#e3f0fb" stroke-width="3" paint-order="stroke">${esc(label)}</text></g>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('nearby.mapLabel'))}"><rect width="${W}" height="${H}" fill="#e3f0fb"/>
     <path d="M0 ${H * 0.35} L${W} ${H * 0.3}" stroke="#fff" stroke-width="8" fill="none"/><path d="M${W * 0.3} 0 L${W * 0.34} ${H}" stroke="#fff" stroke-width="7" fill="none"/><path d="M0 ${H * 0.72} L${W} ${H * 0.78}" stroke="#fff" stroke-width="5" fill="none"/>
-    <circle cx="${X(0)}" cy="${Y(0)}" r="20" fill="#17756e" fill-opacity=".18"/><circle cx="${X(0)}" cy="${Y(0)}" r="8" fill="#17756e" stroke="#fff" stroke-width="3"/>
+    <circle cx="${X(0)}" cy="${Y(0)}" r="20" fill="#cc3d7a" fill-opacity=".18"/><circle cx="${X(0)}" cy="${Y(0)}" r="8" fill="#cc3d7a" stroke="#fff" stroke-width="3"/>
     ${pts.map((p) => pin(X(p.x), Y(p.y), KIND_COLORS[p.f.kind] || '#555', p.f.name.length > 22 ? p.f.name.slice(0, 21) + '…' : p.f.name)).join('')}</svg>`;
 }
 
